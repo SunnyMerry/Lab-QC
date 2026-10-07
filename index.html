@@ -1,3 +1,4 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -71,7 +72,7 @@
           </div>
           <div>
             <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Control Level</label>
-            <input type="text" id="controlLevel" placeholder="e.g., HIGH, LOW, L1" class="w-full border rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+            <input type="text" id="controlLevel" placeholder="e.g., Level 1 (L1)" class="w-full border rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
           </div>
           <div>
             <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Parameter / Analyte</label>
@@ -179,7 +180,6 @@
     let chartsDatabase = [];
     let activeChartId = null;
 
-    // Drag-and-drop state tracker
     let draggedPointIndex = null;
     let isDragging = false;
 
@@ -188,10 +188,63 @@
       levels: {}
     };
 
+    // 13 Preset Analytes for Hematology (L1, L2, L3)
+    const hematologyAnalytesConfig = [
+      { name: 'WBC', label: 'WBC', meanL1: 2.15, sdL1: 0.12, meanL2: 7.20, sdL2: 0.35, meanL3: 18.50, sdL3: 0.80 },
+      { name: 'RBC', label: 'RBC', meanL1: 2.35, sdL1: 0.08, meanL2: 4.45, sdL2: 0.15, meanL3: 5.60, sdL3: 0.20 },
+      { name: 'HGB', label: 'HGB', meanL1: 5.8, sdL1: 0.2, meanL2: 12.4, sdL2: 0.4, meanL3: 17.8, sdL3: 0.6 },
+      { name: 'HCT', label: 'HCT', meanL1: 17.5, sdL1: 0.8, meanL2: 36.8, sdL2: 1.2, meanL3: 52.0, sdL3: 1.5 },
+      { name: 'MCV', label: 'MCV', meanL1: 74.5, sdL1: 2.0, meanL2: 82.7, sdL2: 2.2, meanL3: 92.8, sdL3: 2.5 },
+      { name: 'MCH', label: 'MCH', meanL1: 24.7, sdL1: 0.8, meanL2: 27.8, sdL2: 0.9, meanL3: 31.8, sdL3: 1.0 },
+      { name: 'MCHC', label: 'MCHC', meanL1: 33.1, sdL1: 1.0, meanL2: 33.7, sdL2: 1.1, meanL3: 34.2, sdL3: 1.2 },
+      { name: 'PLT', label: 'PLT', meanL1: 62.0, sdL1: 5.0, meanL2: 235.0, sdL2: 12.0, meanL3: 510.0, sdL3: 22.0 },
+      { name: 'NEUTRO', label: 'Neutro', meanL1: 42.5, sdL1: 2.5, meanL2: 58.0, sdL2: 3.0, meanL3: 72.0, sdL3: 3.5 },
+      { name: 'LYMPHO', label: 'Lympho', meanL1: 45.0, sdL1: 2.5, meanL2: 30.0, sdL2: 2.0, meanL3: 18.0, sdL3: 1.5 },
+      { name: 'MONO', label: 'Mono', meanL1: 6.2, sdL1: 0.8, meanL2: 7.5, sdL2: 0.9, meanL3: 6.0, sdL3: 0.7 },
+      { name: 'EOS', label: 'Eos', meanL1: 3.8, sdL1: 0.5, meanL2: 3.2, sdL2: 0.4, meanL3: 2.5, sdL3: 0.3 },
+      { name: 'BASO', label: 'Baso', meanL1: 2.5, sdL1: 0.4, meanL2: 1.3, sdL2: 0.3, meanL3: 1.5, sdL3: 0.3 }
+    ];
+
+    function generateDefaultHematologyCharts() {
+      const charts = [];
+      let count = 1;
+
+      const levels = [
+        { key: 'Level 1 (L1)', meanProp: 'meanL1', sdProp: 'sdL1' },
+        { key: 'Level 2 (L2)', meanProp: 'meanL2', sdProp: 'sdL2' },
+        { key: 'Level 3 (L3)', meanProp: 'meanL3', sdProp: 'sdL3' }
+      ];
+
+      levels.forEach(lvl => {
+        hematologyAnalytesConfig.forEach(analyte => {
+          const mean = analyte[lvl.meanProp];
+          const sd = analyte[lvl.sdProp];
+          charts.push({
+            id: `hema_chart_${count++}`,
+            title: analyte.name,
+            data: {
+              department: "Hematology",
+              level: lvl.key,
+              analyte: analyte.name,
+              mean: mean,
+              sd: sd,
+              rows: [
+                { label: "10-01-26", value: Number((mean - sd * 0.4).toFixed(2)) },
+                { label: "10-02-26", value: Number((mean + sd * 0.3).toFixed(2)) }
+              ]
+            }
+          });
+        });
+      });
+
+      return charts;
+    }
+
     const initialDefaultCharts = [
+      ...generateDefaultHematologyCharts(),
       {
-        id: 'chart_1',
-        title: 'CM RBC HIGH',
+        id: 'cm_chart_1',
+        title: 'RBC',
         data: {
           department: "Clinical Microscopy",
           level: "HIGH",
@@ -203,40 +256,13 @@
             { label: "10-02-26", value: 190.1 },
             { label: "10-03-26", value: 152.0 },
             { label: "10-04-26", value: 203.52 },
-            { label: "10-05-26", value: 218.6 },
-            { label: "10-06-26", value: 239.1 },
-            { label: "10-07-26", value: 188.38 },
-            { label: "10-08-26", value: 217.63 },
-            { label: "10-09-26", value: 198.35 },
-            { label: "10-10-26", value: 264.2 },
-            { label: "10-11-26", value: 217.47 },
-            { label: "10-12-26", value: 223.5 },
-            { label: "10-13-26", value: 243.1 },
-            { label: "10-14-26", value: 261.0 },
-            { label: "10-15-26", value: 154.2 },
-            { label: "10-16-26", value: 245.8 },
-            { label: "10-17-26", value: 210.3 }
+            { label: "10-05-26", value: 218.6 }
           ]
         }
       },
       {
-        id: 'chart_2',
-        title: 'HEMA WBC L1',
-        data: {
-          department: "Hematology",
-          level: "Level 1 (L1)",
-          analyte: "WBC",
-          mean: 2.15,
-          sd: 0.12,
-          rows: [
-            { label: "10-01-26", value: 2.10 },
-            { label: "10-02-26", value: 2.18 }
-          ]
-        }
-      },
-      {
-        id: 'chart_3',
-        title: 'CHEM GLUCOSE L1',
+        id: 'chem_chart_1',
+        title: 'Glucose',
         data: {
           department: "Clinical Chemistry",
           level: "L1 - Normal",
@@ -256,21 +282,25 @@
       const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       document.getElementById('autoMonthPicker').value = monthStr;
 
-      const stored = localStorage.getItem('lj_charts_db_v3');
+      const stored = localStorage.getItem('lj_charts_db_v4');
       if (stored) {
         chartsDatabase = JSON.parse(stored);
       } else {
         chartsDatabase = JSON.parse(JSON.stringify(initialDefaultCharts));
         saveDatabaseToStorage();
       }
-      activeChartId = chartsDatabase[0].id;
+
+      if (chartsDatabase.length > 0) {
+        activeChartId = chartsDatabase[0].id;
+      }
+      
       renderSidebarTiles();
       loadActiveChartIntoUI();
       setupCanvasDragListeners();
     }
 
     function saveDatabaseToStorage() {
-      localStorage.setItem('lj_charts_db_v3', JSON.stringify(chartsDatabase));
+      localStorage.setItem('lj_charts_db_v4', JSON.stringify(chartsDatabase));
     }
 
     function toggleDept(dept) {
@@ -391,7 +421,7 @@
               levelWrapper.appendChild(levelBody);
             }
 
-            deptBody.appendChild(levelWrapper);
+            deptWrapper.appendChild(levelWrapper);
           });
 
           deptWrapper.appendChild(deptBody);
@@ -451,7 +481,7 @@
         data: {
           department: department,
           level: level,
-          analyte: "New Analyte",
+          analyte: title,
           mean: 100,
           sd: 10,
           rows: [
@@ -493,8 +523,10 @@
       const newTitle = prompt("Rename chart title:", item.title);
       if (newTitle && newTitle.trim() !== "") {
         item.title = newTitle.trim();
+        item.data.analyte = newTitle.trim();
         saveDatabaseToStorage();
         renderSidebarTiles();
+        loadActiveChartIntoUI();
       }
     }
 
@@ -515,7 +547,7 @@
     function deleteChart(id) {
       if (confirm("Are you sure you want to delete this chart?")) {
         chartsDatabase = chartsDatabase.filter(c => c.id !== id);
-        if (activeChartId === id) {
+        if (activeChartId === id && chartsDatabase.length > 0) {
           activeChartId = chartsDatabase[0].id;
         }
         saveDatabaseToStorage();
@@ -531,8 +563,8 @@
       document.getElementById('chartDept').value = active.data.department || "Clinical Microscopy";
       document.getElementById('controlLevel').value = active.data.level || "";
       document.getElementById('analyteName').value = active.data.analyte || "";
-      document.getElementById('targetMean').value = active.data.mean || "";
-      document.getElementById('targetSD').value = active.data.sd || "";
+      document.getElementById('targetMean').value = active.data.mean !== undefined ? active.data.mean : "";
+      document.getElementById('targetSD').value = active.data.sd !== undefined ? active.data.sd : "";
 
       const tbody = document.getElementById('dataTable');
       tbody.innerHTML = '';
@@ -684,6 +716,7 @@
       active.data.department = document.getElementById('chartDept').value;
       active.data.level = document.getElementById('controlLevel').value;
       active.data.analyte = document.getElementById('analyteName').value;
+      active.title = document.getElementById('analyteName').value || active.title;
       active.data.mean = parseFloat(document.getElementById('targetMean').value) || 0;
       active.data.sd = parseFloat(document.getElementById('targetSD').value) || 0;
 
@@ -858,7 +891,6 @@
           const yScale = ljChart.scales.y;
           let newYValue = yScale.getValueForPixel(pos.y);
 
-          // Precision decimal formatting based on 1 SD setting
           const targetSD = parseFloat(document.getElementById('targetSD').value) || 1;
           let decimals = 2;
           const sdStr = String(targetSD);
@@ -867,24 +899,20 @@
           }
           newYValue = parseFloat(newYValue.toFixed(decimals));
 
-          // Live update dataset & UI chart
           ljChart.data.datasets[0].data[draggedPointIndex] = newYValue;
-          ljChart.update('none'); // Update smoothly without re-triggering animations
+          ljChart.update('none');
 
-          // Synchronize input in table log
           const rows = document.querySelectorAll('#dataTable tr');
           if (rows[draggedPointIndex]) {
             const valInput = rows[draggedPointIndex].querySelector('.qc-value');
             if (valInput) {
               valInput.value = newYValue;
-              // Visual highlight effect
               valInput.classList.add('bg-blue-100');
               setTimeout(() => valInput.classList.remove('bg-blue-100'), 300);
             }
           }
           evt.preventDefault();
         } else {
-          // Hover state detection
           const elements = ljChart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
           if (elements && elements.length > 0) {
             canvas.style.cursor = 'ns-resize';
@@ -899,13 +927,11 @@
           isDragging = false;
           draggedPointIndex = null;
           canvas.style.cursor = 'default';
-          // Save and re-render standard state
           saveActiveChartFromUI();
           renderChart();
         }
       }
 
-      // Mouse events
       canvas.addEventListener('mousedown', handlePointerDown);
       canvas.addEventListener('mousemove', handlePointerMove);
       window.addEventListener('mouseup', handlePointerUp);
@@ -913,7 +939,6 @@
         if (!isDragging) canvas.style.cursor = 'default';
       });
 
-      // Touch events for mobile/tablet drag support
       canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
       canvas.addEventListener('touchmove', handlePointerMove, { passive: false });
       window.addEventListener('touchend', handlePointerUp);
@@ -935,8 +960,9 @@
       renderSidebarTiles();
     }
 
-    // Startup Initialization
+    // Initialize application
     initDatabase();
   </script>
 </body>
 </html>
+```
