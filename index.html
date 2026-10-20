@@ -132,7 +132,7 @@
             </div>
             
             <div class="relative w-full h-[380px]">
-              <canvas id="ljChart"></canvas>
+              <canvas id="ljChart" class="cursor-pointer"></canvas>
             </div>
           </div>
 
@@ -204,7 +204,7 @@
     }
 
     const hemaAnalytes = [
-      { name: "WBC", mean: 7.5, sd: 0.5 },
+      { name: "WBC", mean: 2.32, sd: 0.23 },
       { name: "RBC", mean: 4.5, sd: 0.3 },
       { name: "HGB", mean: 14.0, sd: 0.8 },
       { name: "HCT", mean: 42.0, sd: 2.0 },
@@ -233,7 +233,7 @@
       // Hematology Levels: Level 1 (L1), Level 2 (L2), Level 3 (L3)
       ["Level 1 (L1)", "Level 2 (L2)", "Level 3 (L3)"].forEach(lvl => {
         hemaAnalytes.forEach(ha => {
-          let multiplier = lvl.includes("1") ? 0.8 : (lvl.includes("2") ? 1.0 : 1.2);
+          let multiplier = lvl.includes("1") ? 1.0 : (lvl.includes("2") ? 1.5 : 2.0);
           charts.push({
             id: 'chart_' + (idCounter++),
             title: `${ha.name} ${lvl.split(' ')[0]}`,
@@ -771,8 +771,9 @@
             borderColor: '#1e40af',
             backgroundColor: '#1e40af',
             borderWidth: 2,
-            pointRadius: 5,
-            pointHoverRadius: 8,
+            pointRadius: 6,
+            pointHoverRadius: 9,
+            pointHitRadius: 12,
             tension: 0
           }]
         },
@@ -849,7 +850,7 @@
 
       canvas.addEventListener('pointerdown', (e) => {
         if (!ljChart) return;
-        const points = ljchart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+        const points = ljChart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
         if (points.length) {
           activePointIndex = points[0].index;
           canvas.setPointerCapture(e.pointerId);
@@ -907,7 +908,9 @@
     }
 
     // Startup
-    initDatabase();
+    window.onload = function() {
+      initDatabase();
+    };
   </script>
 </body>
 </html>
