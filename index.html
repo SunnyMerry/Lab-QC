@@ -1,10 +1,9 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Levey-Jennings Quality Control Generator</title>
+  <title>Levey-Jennings QC Chart Generator</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js -->
@@ -23,12 +22,12 @@
     }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen text-gray-800 font-sans">
+<body class="bg-gray-100 min-h-screen text-gray-800">
 
   <div class="flex flex-col md:flex-row min-h-screen">
     
     <!-- Sidebar: Nested Folder Tree -->
-    <aside class="no-print w-full md:w-80 bg-slate-900 text-white p-4 space-y-5 flex-shrink-0">
+    <aside class="no-print w-full md:w-80 bg-slate-900 text-white p-4 space-y-4 flex-shrink-0">
       <div class="flex justify-between items-center border-b border-slate-700 pb-3">
         <div>
           <h2 class="font-bold text-base">QC Charts Folder</h2>
@@ -39,8 +38,19 @@
         </button>
       </div>
 
-      <!-- Nested Tree View Container -->
-      <div id="chartTilesContainer" class="space-y-3 max-h-[calc(100vh-130px)] overflow-y-auto pr-1 text-sm">
+      <!-- Export / Import Backup Action Bar -->
+      <div class="grid grid-cols-2 gap-2 pb-2 border-b border-slate-800">
+        <button onclick="exportDatabase()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-1.5 px-2 rounded border border-slate-700 transition flex items-center justify-center gap-1.5" title="Download backup file to move to PC">
+          <span>📥</span> Export
+        </button>
+        <label class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-1.5 px-2 rounded border border-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer" title="Upload backup file from PC/Phone">
+          <span>📤</span> Import
+          <input type="file" id="importFile" accept=".json" onchange="importDatabase(event)" class="hidden">
+        </label>
+      </div>
+
+      <!-- Nested Tree View -->
+      <div id="chartTilesContainer" class="space-y-3 max-h-[calc(100vh-190px)] overflow-y-auto pr-1 text-sm">
         <!-- Dynamic Collapsible Hierarchy Inserted Here -->
       </div>
     </aside>
@@ -72,7 +82,7 @@
           </div>
           <div>
             <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Control Level</label>
-            <input type="text" id="controlLevel" placeholder="e.g., Level 1 (L1)" class="w-full border rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+            <input type="text" id="controlLevel" placeholder="e.g., HIGH, LOW, L1" class="w-full border rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
           </div>
           <div>
             <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Parameter / Analyte</label>
@@ -112,14 +122,12 @@
           
           <!-- Chart Column -->
           <div class="lg:col-span-7 border rounded-xl p-3 bg-gray-50/50 space-y-2">
-            <!-- Label Visibility Toggle & Drag Hint -->
-            <div class="no-print flex items-center justify-between px-1">
-              <span class="text-[11px] text-blue-600 font-medium flex items-center gap-1">
-                <span>👇</span> Click & drag data points vertically on chart
-              </span>
-              <label class="inline-flex items-center gap-2 cursor-pointer text-xs text-gray-600 font-medium hover:text-gray-900 select-none">
-                <input type="checkbox" id="showLabelsToggle" checked onchange="renderChart()" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
-                <span>Show SD Labels on Chart</span>
+            <!-- Label Visibility Toggle & Drag Notice -->
+            <div class="no-print flex items-center justify-between px-1 text-[11px] text-slate-500 font-medium">
+              <span>💡 Click & drag points vertically on chart</span>
+              <label class="inline-flex items-center gap-1.5 cursor-pointer hover:text-gray-900 select-none">
+                <input type="checkbox" id="showLabelsToggle" checked onchange="renderChart()" class="w-3.5 h-3.5 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                <span>Show SD Labels</span>
               </label>
             </div>
             
@@ -132,11 +140,11 @@
           <div class="lg:col-span-5 border rounded-xl p-3 bg-white space-y-3">
             <div class="flex justify-between items-center">
               <h3 class="font-semibold text-xs text-gray-700 uppercase tracking-wider">Control Data Logs</h3>
-              <div class="flex items-center space-x-1.5 no-print">
-                <button onclick="autoGenerateQCValues()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-2.5 py-1 rounded transition shadow-sm flex items-center gap-1" title="Generate random numbers clustered near Target Mean">
-                  <span>🎲</span> Auto-Generate
+              <div class="flex items-center space-x-1.5">
+                <button onclick="autoGenerateData()" class="no-print bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-2.5 py-1 rounded transition shadow-sm" title="Generate random QC values near mean">
+                  🎲 Auto-Generate
                 </button>
-                <button onclick="addRow()" class="bg-gray-800 hover:bg-black text-white text-xs font-medium px-2.5 py-1 rounded transition">
+                <button onclick="addRow()" class="no-print bg-gray-800 hover:bg-black text-white text-xs font-medium px-2.5 py-1 rounded transition">
                   + Add Row
                 </button>
               </div>
@@ -180,102 +188,76 @@
     let chartsDatabase = [];
     let activeChartId = null;
 
-    let draggedPointIndex = null;
-    let isDragging = false;
-
     let collapsedState = {
       depts: {},
       levels: {}
     };
 
-    // 13 Preset Analytes for Hematology (L1, L2, L3)
-    const hematologyAnalytesConfig = [
-      { name: 'WBC', label: 'WBC', meanL1: 2.15, sdL1: 0.12, meanL2: 7.20, sdL2: 0.35, meanL3: 18.50, sdL3: 0.80 },
-      { name: 'RBC', label: 'RBC', meanL1: 2.35, sdL1: 0.08, meanL2: 4.45, sdL2: 0.15, meanL3: 5.60, sdL3: 0.20 },
-      { name: 'HGB', label: 'HGB', meanL1: 5.8, sdL1: 0.2, meanL2: 12.4, sdL2: 0.4, meanL3: 17.8, sdL3: 0.6 },
-      { name: 'HCT', label: 'HCT', meanL1: 17.5, sdL1: 0.8, meanL2: 36.8, sdL2: 1.2, meanL3: 52.0, sdL3: 1.5 },
-      { name: 'MCV', label: 'MCV', meanL1: 74.5, sdL1: 2.0, meanL2: 82.7, sdL2: 2.2, meanL3: 92.8, sdL3: 2.5 },
-      { name: 'MCH', label: 'MCH', meanL1: 24.7, sdL1: 0.8, meanL2: 27.8, sdL2: 0.9, meanL3: 31.8, sdL3: 1.0 },
-      { name: 'MCHC', label: 'MCHC', meanL1: 33.1, sdL1: 1.0, meanL2: 33.7, sdL2: 1.1, meanL3: 34.2, sdL3: 1.2 },
-      { name: 'PLT', label: 'PLT', meanL1: 62.0, sdL1: 5.0, meanL2: 235.0, sdL2: 12.0, meanL3: 510.0, sdL3: 22.0 },
-      { name: 'NEUTRO', label: 'Neutro', meanL1: 42.5, sdL1: 2.5, meanL2: 58.0, sdL2: 3.0, meanL3: 72.0, sdL3: 3.5 },
-      { name: 'LYMPHO', label: 'Lympho', meanL1: 45.0, sdL1: 2.5, meanL2: 30.0, sdL2: 2.0, meanL3: 18.0, sdL3: 1.5 },
-      { name: 'MONO', label: 'Mono', meanL1: 6.2, sdL1: 0.8, meanL2: 7.5, sdL2: 0.9, meanL3: 6.0, sdL3: 0.7 },
-      { name: 'EOS', label: 'Eos', meanL1: 3.8, sdL1: 0.5, meanL2: 3.2, sdL2: 0.4, meanL3: 2.5, sdL3: 0.3 },
-      { name: 'BASO', label: 'Baso', meanL1: 2.5, sdL1: 0.4, meanL2: 1.3, sdL2: 0.3, meanL3: 1.5, sdL3: 0.3 }
+    // Helper to generate default preset rows for hematology analytes
+    function generateDefaultRows() {
+      return [
+        { label: "10-01-26", value: null },
+        { label: "10-02-26", value: null },
+        { label: "10-03-26", value: null },
+        { label: "10-04-26", value: null }
+      ];
+    }
+
+    const hemaAnalytes = [
+      { name: "WBC", mean: 7.5, sd: 0.5 },
+      { name: "RBC", mean: 4.5, sd: 0.3 },
+      { name: "HGB", mean: 14.0, sd: 0.8 },
+      { name: "HCT", mean: 42.0, sd: 2.0 },
+      { name: "MCV", mean: 90.0, sd: 3.0 },
+      { name: "MCH", mean: 30.0, sd: 1.0 },
+      { name: "MCHC", mean: 33.0, sd: 1.0 },
+      { name: "PLT", mean: 250.0, sd: 20.0 },
+      { name: "NEUTRO", mean: 60.0, sd: 4.0 },
+      { name: "LYMPHO", mean: 30.0, sd: 3.0 },
+      { name: "MONO", mean: 6.0, sd: 1.0 },
+      { name: "EOS", mean: 3.0, sd: 0.5 },
+      { name: "BASO", mean: 1.0, sd: 0.2 }
     ];
 
-    function generateDefaultHematologyCharts() {
-      const charts = [];
-      let count = 1;
+    function getInitialPresetCharts() {
+      let charts = [];
+      let idCounter = 1;
 
-      const levels = [
-        { key: 'Level 1 (L1)', meanProp: 'meanL1', sdProp: 'sdL1' },
-        { key: 'Level 2 (L2)', meanProp: 'meanL2', sdProp: 'sdL2' },
-        { key: 'Level 3 (L3)', meanProp: 'meanL3', sdProp: 'sdL3' }
-      ];
+      // Clinical Microscopy
+      charts.push({
+        id: 'chart_' + (idCounter++),
+        title: 'CM RBC HIGH',
+        data: { department: "Clinical Microscopy", level: "HIGH", analyte: "RBC", mean: 202.9, sd: 40.66, rows: [{ label: "10-01-26", value: 210.8 }] }
+      });
 
-      levels.forEach(lvl => {
-        hematologyAnalytesConfig.forEach(analyte => {
-          const mean = analyte[lvl.meanProp];
-          const sd = analyte[lvl.sdProp];
+      // Hematology Levels: Level 1 (L1), Level 2 (L2), Level 3 (L3)
+      ["Level 1 (L1)", "Level 2 (L2)", "Level 3 (L3)"].forEach(lvl => {
+        hemaAnalytes.forEach(ha => {
+          let multiplier = lvl.includes("1") ? 0.8 : (lvl.includes("2") ? 1.0 : 1.2);
           charts.push({
-            id: `hema_chart_${count++}`,
-            title: analyte.name,
+            id: 'chart_' + (idCounter++),
+            title: `${ha.name} ${lvl.split(' ')[0]}`,
             data: {
               department: "Hematology",
-              level: lvl.key,
-              analyte: analyte.name,
-              mean: mean,
-              sd: sd,
-              rows: [
-                { label: "10-01-26", value: Number((mean - sd * 0.4).toFixed(2)) },
-                { label: "10-02-26", value: Number((mean + sd * 0.3).toFixed(2)) }
-              ]
+              level: lvl,
+              analyte: ha.name,
+              mean: parseFloat((ha.mean * multiplier).toFixed(2)),
+              sd: ha.sd,
+              rows: generateDefaultRows()
             }
           });
         });
       });
 
+      // Clinical Chemistry
+      charts.push({
+        id: 'chart_' + (idCounter++),
+        title: 'CHEM GLUCOSE L1',
+        data: { department: "Clinical Chemistry", level: "L1 - Normal", analyte: "Glucose", mean: 95.0, sd: 4.5, rows: [{ label: "10-01-26", value: 94.2 }] }
+      });
+
       return charts;
     }
-
-    const initialDefaultCharts = [
-      ...generateDefaultHematologyCharts(),
-      {
-        id: 'cm_chart_1',
-        title: 'RBC',
-        data: {
-          department: "Clinical Microscopy",
-          level: "HIGH",
-          analyte: "RBC",
-          mean: 202.9,
-          sd: 40.66,
-          rows: [
-            { label: "10-01-26", value: 216.8 },
-            { label: "10-02-26", value: 190.1 },
-            { label: "10-03-26", value: 152.0 },
-            { label: "10-04-26", value: 203.52 },
-            { label: "10-05-26", value: 218.6 }
-          ]
-        }
-      },
-      {
-        id: 'chem_chart_1',
-        title: 'Glucose',
-        data: {
-          department: "Clinical Chemistry",
-          level: "L1 - Normal",
-          analyte: "Glucose",
-          mean: 95.0,
-          sd: 4.5,
-          rows: [
-            { label: "10-01-26", value: 94.2 },
-            { label: "10-02-26", value: 96.1 }
-          ]
-        }
-      }
-    ];
 
     function initDatabase() {
       const now = new Date();
@@ -286,21 +268,55 @@
       if (stored) {
         chartsDatabase = JSON.parse(stored);
       } else {
-        chartsDatabase = JSON.parse(JSON.stringify(initialDefaultCharts));
+        chartsDatabase = getInitialPresetCharts();
         saveDatabaseToStorage();
       }
-
-      if (chartsDatabase.length > 0) {
-        activeChartId = chartsDatabase[0].id;
-      }
-      
+      activeChartId = chartsDatabase[0].id;
       renderSidebarTiles();
       loadActiveChartIntoUI();
-      setupCanvasDragListeners();
+      initCanvasDragListeners();
     }
 
     function saveDatabaseToStorage() {
       localStorage.setItem('lj_charts_db_v4', JSON.stringify(chartsDatabase));
+    }
+
+    // Export & Import Database Functions for multi-device sync
+    function exportDatabase() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(chartsDatabase, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `QC_Charts_Backup_${new Date().toISOString().slice(0,10)}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    function importDatabase(event) {
+      const fileReader = new FileReader();
+      if (event.target.files.length === 0) return;
+      
+      fileReader.readAsText(event.target.files[0], "UTF-8");
+      fileReader.onload = function(e) {
+        try {
+          const importedDB = JSON.parse(e.target.result);
+          if (Array.isArray(importedDB) && importedDB.length > 0) {
+            if (confirm("Importing this backup will overwrite your current charts. Proceed?")) {
+              chartsDatabase = importedDB;
+              saveDatabaseToStorage();
+              activeChartId = chartsDatabase[0].id;
+              renderSidebarTiles();
+              loadActiveChartIntoUI();
+              alert("Backup successfully imported!");
+            }
+          } else {
+            alert("Invalid backup file format.");
+          }
+        } catch (error) {
+          alert("Error parsing JSON backup file.");
+        }
+        event.target.value = ""; // Reset file input
+      };
     }
 
     function toggleDept(dept) {
@@ -421,7 +437,7 @@
               levelWrapper.appendChild(levelBody);
             }
 
-            deptWrapper.appendChild(levelWrapper);
+            deptBody.appendChild(levelWrapper);
           });
 
           deptWrapper.appendChild(deptBody);
@@ -481,7 +497,7 @@
         data: {
           department: department,
           level: level,
-          analyte: title,
+          analyte: "New Analyte",
           mean: 100,
           sd: 10,
           rows: [
@@ -523,10 +539,8 @@
       const newTitle = prompt("Rename chart title:", item.title);
       if (newTitle && newTitle.trim() !== "") {
         item.title = newTitle.trim();
-        item.data.analyte = newTitle.trim();
         saveDatabaseToStorage();
         renderSidebarTiles();
-        loadActiveChartIntoUI();
       }
     }
 
@@ -547,7 +561,7 @@
     function deleteChart(id) {
       if (confirm("Are you sure you want to delete this chart?")) {
         chartsDatabase = chartsDatabase.filter(c => c.id !== id);
-        if (activeChartId === id && chartsDatabase.length > 0) {
+        if (activeChartId === id) {
           activeChartId = chartsDatabase[0].id;
         }
         saveDatabaseToStorage();
@@ -563,8 +577,8 @@
       document.getElementById('chartDept').value = active.data.department || "Clinical Microscopy";
       document.getElementById('controlLevel').value = active.data.level || "";
       document.getElementById('analyteName').value = active.data.analyte || "";
-      document.getElementById('targetMean').value = active.data.mean !== undefined ? active.data.mean : "";
-      document.getElementById('targetSD').value = active.data.sd !== undefined ? active.data.sd : "";
+      document.getElementById('targetMean').value = active.data.mean || "";
+      document.getElementById('targetSD').value = active.data.sd || "";
 
       const tbody = document.getElementById('dataTable');
       tbody.innerHTML = '';
@@ -588,79 +602,54 @@
       tbody.appendChild(tr);
     }
 
-    function generateGaussianRandom(mean, sd) {
-      let u1 = 0, u2 = 0;
-      while (u1 === 0) u1 = Math.random();
-      while (u2 === 0) u2 = Math.random();
-      
-      const z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-      let generatedVal = mean + (z0 * (sd || (mean * 0.05)));
-
-      let decimals = 2;
-      if (sd !== 0) {
-        const sdStr = String(sd);
-        if (sdStr.includes('.')) {
-          decimals = Math.min(Math.max(sdStr.split('.')[1].length, 1), 4);
-        } else if (sd < 1) {
-          decimals = 3;
-        }
-      }
-      return parseFloat(generatedVal.toFixed(decimals));
-    }
-
-    function autoGenerateQCValues() {
-      const targetMean = parseFloat(document.getElementById('targetMean').value);
-      const targetSD = parseFloat(document.getElementById('targetSD').value);
-
-      if (isNaN(targetMean)) {
-        alert("Please set a valid Target Mean before auto-generating QC data.");
-        return;
-      }
-
-      const rows = document.querySelectorAll('#dataTable tr');
-      if (rows.length === 0) {
-        populateFullMonth();
-      }
-
-      const updatedRows = document.querySelectorAll('#dataTable tr');
-      if (updatedRows.length === 0) return;
-
-      const effectiveSD = isNaN(targetSD) || targetSD <= 0 ? (targetMean * 0.05) : targetSD;
-
-      updatedRows.forEach(row => {
-        const valInput = row.querySelector('.qc-value');
-        if (valInput) {
-          const simulatedValue = generateGaussianRandom(targetMean, effectiveSD);
-          valInput.value = simulatedValue;
-        }
-      });
-
-      attachListeners();
-      saveActiveChartFromUI();
-      renderChart();
-    }
-
     function populateFullMonth() {
       const monthPickerVal = document.getElementById('autoMonthPicker').value;
       if (!monthPickerVal) return;
 
-      const [yearStr, monthStr] = monthPickerVal.split('-');
-      const year = parseInt(yearStr);
-      const month = parseInt(monthStr);
-      const daysInMonth = new Date(year, month, 0).getDate();
-      const shortYear = yearStr.slice(-2);
+      if (confirm("Populating the month will replace your current log table rows. Continue?")) {
+        const [yearStr, monthStr] = monthPickerVal.split('-');
+        const year = parseInt(yearStr);
+        const month = parseInt(monthStr);
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const shortYear = yearStr.slice(-2);
 
-      const tbody = document.getElementById('dataTable');
-      tbody.innerHTML = '';
+        const tbody = document.getElementById('dataTable');
+        tbody.innerHTML = '';
 
-      for (let day = 1; day <= daysInMonth; day++) {
-        const formattedDay = String(day).padStart(2, '0');
-        const formattedMonth = String(month).padStart(2, '0');
-        const dateLabel = `${formattedMonth}-${formattedDay}-${shortYear}`;
-        appendRowToTable(dateLabel, "");
+        for (let day = 1; day <= daysInMonth; day++) {
+          const formattedDay = String(day).padStart(2, '0');
+          const formattedMonth = String(month).padStart(2, '0');
+          const dateLabel = `${formattedMonth}-${formattedDay}-${shortYear}`;
+          appendRowToTable(dateLabel, "");
+        }
+
+        attachListeners();
+        saveActiveChartFromUI();
+        renderChart();
+      }
+    }
+
+    function autoGenerateData() {
+      const mean = parseFloat(document.getElementById('targetMean').value) || 0;
+      const sd = parseFloat(document.getElementById('targetSD').value) || 0;
+      
+      const rows = document.querySelectorAll('#dataTable tr');
+      if (rows.length === 0) {
+        alert("Please add rows or populate a month first!");
+        return;
       }
 
-      attachListeners();
+      rows.forEach(row => {
+        const valInput = row.querySelector('.qc-value');
+        // Box-Muller transform for normal distribution around mean with sd
+        let u1 = Math.random();
+        let u2 = Math.random();
+        let z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+        let generatedVal = mean + (z0 * sd);
+        
+        valInput.value = parseFloat(generatedVal.toFixed(2));
+      });
+
       saveActiveChartFromUI();
       renderChart();
     }
@@ -716,7 +705,6 @@
       active.data.department = document.getElementById('chartDept').value;
       active.data.level = document.getElementById('controlLevel').value;
       active.data.analyte = document.getElementById('analyteName').value;
-      active.title = document.getElementById('analyteName').value || active.title;
       active.data.mean = parseFloat(document.getElementById('targetMean').value) || 0;
       active.data.sd = parseFloat(document.getElementById('targetSD').value) || 0;
 
@@ -769,8 +757,7 @@
       const level = document.getElementById('controlLevel').value;
       document.getElementById('printSubtitle').innerText = `Department: ${dept} | Parameter: ${analyte} | Control Level: ${level}`;
 
-      const canvas = document.getElementById('ljChart');
-      const ctx = canvas.getContext('2d');
+      const ctx = document.getElementById('ljChart').getContext('2d');
 
       if (ljChart) ljChart.destroy();
 
@@ -784,9 +771,8 @@
             borderColor: '#1e40af',
             backgroundColor: '#1e40af',
             borderWidth: 2,
-            pointRadius: 6,
-            pointHoverRadius: 9,
-            pointHitRadius: 12,
+            pointRadius: 5,
+            pointHoverRadius: 8,
             tension: 0
           }]
         },
@@ -856,92 +842,52 @@
       });
     }
 
-    function setupCanvasDragListeners() {
+    // Interactive Drag-and-Drop for Chart Points
+    function initCanvasDragListeners() {
+      let activePointIndex = null;
       const canvas = document.getElementById('ljChart');
 
-      function getPointerPosition(evt) {
-        const rect = canvas.getBoundingClientRect();
-        const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-        const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-        return {
-          x: clientX - rect.left,
-          y: clientY - rect.top
-        };
-      }
-
-      function handlePointerDown(evt) {
+      canvas.addEventListener('pointerdown', (e) => {
         if (!ljChart) return;
-        const pos = getPointerPosition(evt);
-        const elements = ljChart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
-
-        if (elements && elements.length > 0) {
-          draggedPointIndex = elements[0].index;
-          isDragging = true;
-          canvas.style.cursor = 'grabbing';
-          evt.preventDefault();
+        const points = ljchart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, true);
+        if (points.length) {
+          activePointIndex = points[0].index;
+          canvas.setPointerCapture(e.pointerId);
         }
-      }
-
-      function handlePointerMove(evt) {
-        if (!ljChart) return;
-
-        const pos = getPointerPosition(evt);
-
-        if (isDragging && draggedPointIndex !== null) {
-          const yScale = ljChart.scales.y;
-          let newYValue = yScale.getValueForPixel(pos.y);
-
-          const targetSD = parseFloat(document.getElementById('targetSD').value) || 1;
-          let decimals = 2;
-          const sdStr = String(targetSD);
-          if (sdStr.includes('.')) {
-            decimals = Math.min(Math.max(sdStr.split('.')[1].length, 1), 3);
-          }
-          newYValue = parseFloat(newYValue.toFixed(decimals));
-
-          ljChart.data.datasets[0].data[draggedPointIndex] = newYValue;
-          ljChart.update('none');
-
-          const rows = document.querySelectorAll('#dataTable tr');
-          if (rows[draggedPointIndex]) {
-            const valInput = rows[draggedPointIndex].querySelector('.qc-value');
-            if (valInput) {
-              valInput.value = newYValue;
-              valInput.classList.add('bg-blue-100');
-              setTimeout(() => valInput.classList.remove('bg-blue-100'), 300);
-            }
-          }
-          evt.preventDefault();
-        } else {
-          const elements = ljChart.getElementsAtEventForMode(evt, 'nearest', { intersect: true }, true);
-          if (elements && elements.length > 0) {
-            canvas.style.cursor = 'ns-resize';
-          } else {
-            canvas.style.cursor = 'default';
-          }
-        }
-      }
-
-      function handlePointerUp() {
-        if (isDragging) {
-          isDragging = false;
-          draggedPointIndex = null;
-          canvas.style.cursor = 'default';
-          saveActiveChartFromUI();
-          renderChart();
-        }
-      }
-
-      canvas.addEventListener('mousedown', handlePointerDown);
-      canvas.addEventListener('mousemove', handlePointerMove);
-      window.addEventListener('mouseup', handlePointerUp);
-      canvas.addEventListener('mouseleave', () => {
-        if (!isDragging) canvas.style.cursor = 'default';
       });
 
-      canvas.addEventListener('touchstart', handlePointerDown, { passive: false });
-      canvas.addEventListener('touchmove', handlePointerMove, { passive: false });
-      window.addEventListener('touchend', handlePointerUp);
+      canvas.addEventListener('pointermove', (e) => {
+        if (activePointIndex === null || !ljChart) return;
+        const rect = canvas.getBoundingClientRect();
+        const yCoord = e.clientY - rect.top;
+        const newValue = ljChart.scales.y.getValueForPixel(yCoord);
+        
+        if (newValue !== undefined && !isNaN(newValue)) {
+          const rows = document.querySelectorAll('#dataTable tr');
+          if (rows[activePointIndex]) {
+            const valInput = rows[activePointIndex].querySelector('.qc-value');
+            if (valInput) {
+              valInput.value = parseFloat(newValue.toFixed(2));
+              saveActiveChartFromUI();
+              
+              // Update chart dataset directly for smooth feedback
+              ljChart.data.datasets[0].data[activePointIndex] = parseFloat(newValue.toFixed(2));
+              ljChart.update('none');
+              calculateLimits();
+            }
+          }
+        }
+      });
+
+      const stopDrag = (e) => {
+        if (activePointIndex !== null) {
+          activePointIndex = null;
+          renderChart(); // Full redraw on release
+        }
+      };
+
+      canvas.addEventListener('pointerup', stopDrag);
+      canvas.addEventListener('pointercancel', stopDrag);
     }
 
     function attachListeners() {
@@ -960,9 +906,8 @@
       renderSidebarTiles();
     }
 
-    // Initialize application
+    // Startup
     initDatabase();
   </script>
 </body>
 </html>
-```
