@@ -6,31 +6,48 @@
   <title>Levey-Jennings QC Chart Generator</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- Chart.js Annotation Plugin -->
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1"></script>
   
   <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
     @media print {
       .no-print { display: none !important; }
-      body { background: white; padding: 0; }
-      .print-container { box-shadow: none; border: none; width: 100% !important; padding: 0 !important; }
+      body { background: white !important; padding: 0 !important; margin: 0 !important; }
+      .print-container { box-shadow: none !important; border: none !important; width: 100% !important; padding: 0 !important; }
       .print-grid { display: block !important; }
       .print-grid > div { width: 100% !important; margin-bottom: 1.5rem !important; }
-      canvas { max-height: 380px !important; }
+      .batch-print-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 1rem !important;
+      }
+      .batch-card {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: none !important;
+      }
+      canvas { max-height: 360px !important; }
     }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen text-gray-800">
+<body class="bg-slate-100 min-h-screen text-slate-800">
 
   <div class="flex flex-col md:flex-row min-h-screen">
     
     <!-- Sidebar: Nested Folder Tree -->
-    <aside class="no-print w-full md:w-80 bg-slate-900 text-white p-4 space-y-4 flex-shrink-0">
+    <aside class="no-print w-full md:w-80 bg-slate-900 text-white p-4 space-y-4 flex-shrink-0 flex flex-col">
       <div class="flex justify-between items-center border-b border-slate-700 pb-3">
         <div>
-          <h2 class="font-bold text-base">QC Charts Folder</h2>
+          <h2 class="font-bold text-base tracking-tight">QC Charts Folder</h2>
           <p class="text-xs text-slate-400">Saved QC Records</p>
         </div>
         <button onclick="createNewChart()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition shadow-sm" title="Add Chart to Expanded/Active Folder">
@@ -40,93 +57,162 @@
 
       <!-- Export / Import Backup Action Bar -->
       <div class="grid grid-cols-2 gap-2 pb-2 border-b border-slate-800">
-        <button onclick="exportDatabase()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-1.5 px-2 rounded border border-slate-700 transition flex items-center justify-center gap-1.5" title="Download backup file to move to PC">
+        <button onclick="exportDatabase()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-1.5 px-2 rounded-lg border border-slate-700 transition flex items-center justify-center gap-1.5" title="Download backup file to move to PC">
           <span>📥</span> Export
         </button>
-        <label class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-1.5 px-2 rounded border border-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer" title="Upload backup file from PC/Phone">
+        <label class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-1.5 px-2 rounded-lg border border-slate-700 transition flex items-center justify-center gap-1.5 cursor-pointer" title="Upload backup file from PC/Phone">
           <span>📤</span> Import
           <input type="file" id="importFile" accept=".json" onchange="importDatabase(event)" class="hidden">
         </label>
       </div>
 
       <!-- Nested Tree View -->
-      <div id="chartTilesContainer" class="space-y-3 max-h-[calc(100vh-190px)] overflow-y-auto pr-1 text-sm">
+      <div id="chartTilesContainer" class="space-y-3 flex-1 max-h-[calc(100vh-190px)] overflow-y-auto pr-1 text-sm">
         <!-- Dynamic Collapsible Hierarchy Inserted Here -->
       </div>
     </aside>
 
     <!-- Main Workspace -->
-    <main class="flex-1 p-4 md:p-6 max-w-[1600px] mx-auto space-y-5 w-full">
+    <main class="flex-1 p-4 md:p-6 max-w-[1650px] mx-auto space-y-5 w-full">
       
-      <!-- Top Controls Header -->
-      <div class="no-print bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+      <!-- Top Controls Header & Mode Switcher -->
+      <div class="no-print bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
+        <div class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
           <div>
-            <h1 class="text-xl font-bold text-gray-800">Levey-Jennings QC Generator</h1>
-            <p class="text-xs text-gray-500">Auto-saves changes locally to the active chart folder.</p>
+            <div class="flex items-center gap-2.5">
+              <h1 class="text-xl font-bold text-slate-900">Levey-Jennings QC Generator</h1>
+              <span class="bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-semibold px-2.5 py-0.5 rounded-full">Lab QC Suite</span>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">Auto-saves changes locally. Switch between Single Analyte Editor and Batch Report View.</p>
           </div>
-          <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-4 py-2 rounded-lg shadow transition flex items-center gap-2">
-            <span>🖨️</span> Print Chart & Log
-          </button>
+
+          <!-- Action Buttons & View Toggle -->
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- View Mode Segmented Switch -->
+            <div class="inline-flex rounded-lg bg-slate-100 p-1 border border-slate-200">
+              <button id="btnViewSingle" onclick="switchViewMode('single')" class="px-3 py-1.5 rounded-md text-xs font-semibold transition bg-white text-blue-700 shadow-sm">
+                📊 Single Analyte Editor
+              </button>
+              <button id="btnViewBatch" onclick="switchViewMode('batch')" class="px-3 py-1.5 rounded-md text-xs font-semibold transition text-slate-600 hover:text-slate-900">
+                📑 Batch / All Analytes View
+              </button>
+            </div>
+
+            <!-- Prominent Generate Analyte Data Button -->
+            <button onclick="generateSpecificAnalyteReport()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-3.5 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5" title="Generate QC data for active analyte and display full summary card">
+              <span>⚡</span> Generate Analyte Data
+            </button>
+
+            <!-- Print Button -->
+            <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-3.5 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5">
+              <span>🖨️</span> <span id="printBtnLabel">Print Chart & Log</span>
+            </button>
+          </div>
         </div>
 
-        <!-- Configuration Inputs -->
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <!-- Configuration Inputs (Visible in Single Editor Mode) -->
+        <div id="singleConfigPanel" class="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2 border-t border-slate-100">
           <div>
-            <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Department</label>
-            <select id="chartDept" onchange="onInputUpdate()" class="w-full border rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+            <label class="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Department</label>
+            <select id="chartDept" onchange="onInputUpdate()" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none bg-white">
               <option value="Clinical Microscopy">Clinical Microscopy</option>
               <option value="Hematology">Hematology</option>
               <option value="Clinical Chemistry">Clinical Chemistry</option>
             </select>
           </div>
           <div>
-            <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Control Level</label>
-            <input type="text" id="controlLevel" placeholder="e.g., HIGH, LOW, L1" class="w-full border rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+            <label class="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Control Level</label>
+            <input type="text" id="controlLevel" placeholder="e.g., HIGH, LOW, L1" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
           </div>
           <div>
-            <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Parameter / Analyte</label>
-            <input type="text" id="analyteName" class="w-full border rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+            <label class="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Parameter / Analyte</label>
+            <input type="text" id="analyteName" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
           </div>
           <div>
-            <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">Target Mean</label>
-            <input type="number" step="any" id="targetMean" class="w-full border rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+            <label class="block text-[11px] font-semibold text-slate-600 uppercase mb-1">Target Mean</label>
+            <input type="number" step="any" id="targetMean" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
           </div>
           <div>
-            <label class="block text-[11px] font-semibold text-gray-600 uppercase mb-1">1 SD Value</label>
-            <input type="number" step="any" id="targetSD" class="w-full border rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+            <label class="block text-[11px] font-semibold text-slate-600 uppercase mb-1">1 SD Value</label>
+            <input type="number" step="any" id="targetSD" class="w-full border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+          </div>
+        </div>
+
+        <!-- Batch Controls Bar (Visible in Batch View Mode) -->
+        <div id="batchConfigPanel" class="hidden pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Filter Scope</label>
+              <select id="batchScopeSelect" onchange="renderBatchView()" class="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-medium bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+                <option value="active_level">Active Department & Level</option>
+                <option value="active_dept">Entire Active Department</option>
+                <option value="all">All Saved Charts (All Departments)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-500 uppercase mb-0.5">Batch Month (Optional)</label>
+              <input type="month" id="batchMonthPicker" class="border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="batchGenerateAllVisible()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-sm transition flex items-center gap-1.5">
+              <span>🎲</span> Generate All Charts in View
+            </button>
           </div>
         </div>
       </div>
 
-      <!-- Printable Report Container -->
-      <div class="print-container bg-white p-5 rounded-xl shadow-sm border border-gray-200 space-y-4">
+      <!-- ========================================================= -->
+      <!-- VIEW 1: SINGLE ANALYTE EDITOR & DEDICATED SUMMARY CARD    -->
+      <!-- ========================================================= -->
+      <div id="singleViewSection" class="print-container bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-5">
         
-        <!-- Report Header -->
-        <div class="border-b pb-3 flex justify-between items-end">
-          <div>
-            <h2 class="text-lg font-bold text-gray-900" id="printTitle">Levey-Jennings Quality Control Chart</h2>
-            <p class="text-xs text-gray-500" id="printSubtitle">Department: - | Parameter: - | Control: -</p>
+        <!-- Dedicated Analyte Summary Banner (Shows Analyte Name, Target Mean, 1 SD, Observed Stats, and SD Limits) -->
+        <div class="bg-slate-50/90 border border-slate-200 rounded-xl p-4 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2">
+              <span class="bg-blue-600 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded" id="badgeDeptLevel">Department • Level</span>
+              <span id="generatedStatusBadge" class="hidden bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">✓ Data Generated</span>
+            </div>
+            <h2 class="text-2xl font-extrabold text-slate-900 tracking-tight" id="summaryAnalyteTitle">AST</h2>
+            <p class="text-xs text-slate-500" id="printSubtitle">Department: - | Parameter: - | Control: -</p>
           </div>
-          <div class="text-right text-[11px] text-gray-600 space-y-0.5">
-            <p><span class="font-semibold">+2 SD:</span> <span id="val2SDP">-</span></p>
-            <p><span class="font-semibold">+1 SD:</span> <span id="val1SDP">-</span></p>
-            <p class="text-blue-600 font-bold"><span class="font-semibold">MEAN:</span> <span id="valMean">-</span></p>
-            <p><span class="font-semibold">-1 SD:</span> <span id="val1SDM">-</span></p>
-            <p><span class="font-semibold">-2 SD:</span> <span id="val2SDM">-</span></p>
+
+          <!-- Key Metrics Cards: Target Mean, 1 SD, Observed Mean/SD, and +/- SD Limits -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full lg:w-auto">
+            <div class="bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-2xs">
+              <p class="text-[10px] font-bold uppercase text-slate-400">Target Mean</p>
+              <p class="text-base font-extrabold text-blue-700 font-mono" id="cardTargetMean">-</p>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-2xs">
+              <p class="text-[10px] font-bold uppercase text-slate-400">Target 1 SD</p>
+              <p class="text-base font-extrabold text-slate-800 font-mono" id="cardTargetSD">-</p>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-lg px-3 py-2 shadow-2xs">
+              <p class="text-[10px] font-bold uppercase text-slate-400">Observed Mean / SD</p>
+              <p class="text-xs font-bold text-emerald-700 font-mono mt-0.5" id="cardObservedStats">N/A</p>
+            </div>
+            <div class="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-[10px] text-slate-600 space-y-0.5 font-mono">
+              <div class="flex justify-between gap-2"><span class="text-red-600 font-bold">+2SD:</span><span id="val2SDP">-</span></div>
+              <div class="flex justify-between gap-2"><span class="text-slate-500 font-semibold">+1SD:</span><span id="val1SDP">-</span></div>
+              <div class="flex justify-between gap-2"><span class="text-cyan-600 font-bold">MEAN:</span><span id="valMean">-</span></div>
+              <div class="flex justify-between gap-2"><span class="text-slate-500 font-semibold">-1SD:</span><span id="val1SDM">-</span></div>
+              <div class="flex justify-between gap-2"><span class="text-red-600 font-bold">-2SD:</span><span id="val2SDM">-</span></div>
+            </div>
           </div>
         </div>
 
-        <!-- Side-by-Side Split View -->
+        <!-- Side-by-Side Split View: Chart & Control Data Logs -->
         <div class="print-grid grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           
           <!-- Chart Column -->
-          <div class="lg:col-span-7 border rounded-xl p-3 bg-gray-50/50 space-y-2">
+          <div class="lg:col-span-7 border border-slate-200 rounded-xl p-4 bg-white space-y-2 shadow-2xs">
             <!-- Label Visibility Toggle & Drag Notice -->
             <div class="no-print flex items-center justify-between px-1 text-[11px] text-slate-500 font-medium">
-              <span>💡 Click & drag points vertically on chart</span>
-              <label class="inline-flex items-center gap-1.5 cursor-pointer hover:text-gray-900 select-none">
-                <input type="checkbox" id="showLabelsToggle" checked onchange="renderChart()" class="w-3.5 h-3.5 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+              <span>💡 Click & drag points vertically on chart to adjust values</span>
+              <label class="inline-flex items-center gap-1.5 cursor-pointer hover:text-slate-900 select-none">
+                <input type="checkbox" id="showLabelsToggle" checked onchange="renderChart()" class="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500">
                 <span>Show SD Labels</span>
               </label>
             </div>
@@ -134,40 +220,45 @@
             <div class="relative w-full h-[380px]">
               <canvas id="ljChart" class="cursor-pointer"></canvas>
             </div>
+
+            <!-- Centered Analyte Footer matching reference image.png -->
+            <div class="text-center pt-1 border-t border-slate-100">
+              <span id="chartBottomAnalyteName" class="text-sm font-bold tracking-wide text-slate-800 uppercase">AST</span>
+            </div>
           </div>
 
           <!-- Control Data Logs Column -->
-          <div class="lg:col-span-5 border rounded-xl p-3 bg-white space-y-3">
-            <div class="flex justify-between items-center">
-              <h3 class="font-semibold text-xs text-gray-700 uppercase tracking-wider">Control Data Logs</h3>
+          <div class="lg:col-span-5 border border-slate-200 rounded-xl p-4 bg-white space-y-3 shadow-2xs">
+            <div class="flex flex-wrap justify-between items-center gap-2">
+              <h3 class="font-bold text-xs text-slate-700 uppercase tracking-wider">Control Data Logs</h3>
               <div class="flex items-center space-x-1.5">
-                <button onclick="autoGenerateData()" class="no-print bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-2.5 py-1 rounded transition shadow-sm" title="Generate random QC values near mean">
-                  🎲 Auto-Generate
+                <button onclick="generateSpecificAnalyteReport()" class="no-print bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg transition shadow-2xs" title="Generate random QC values near mean">
+                  🎲 Generate Data
                 </button>
-                <button onclick="addRow()" class="no-print bg-gray-800 hover:bg-black text-white text-xs font-medium px-2.5 py-1 rounded transition">
+                <button onclick="addRow()" class="no-print bg-slate-800 hover:bg-black text-white text-xs font-medium px-2.5 py-1.5 rounded-lg transition">
                   + Add Row
                 </button>
               </div>
             </div>
 
             <!-- Auto Date Population Utility Bar -->
-            <div class="no-print flex items-center justify-between gap-2 p-2 bg-slate-50 border rounded-lg">
+            <div class="no-print flex items-center justify-between gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
               <div class="flex items-center space-x-2">
-                <span class="text-[11px] font-semibold text-gray-600">Month:</span>
-                <input type="month" id="autoMonthPicker" class="border rounded p-1 text-xs outline-none focus:ring-1 focus:ring-blue-500 bg-white">
+                <span class="text-[11px] font-semibold text-slate-600">Month:</span>
+                <input type="month" id="autoMonthPicker" class="border border-slate-300 rounded-md p-1 text-xs outline-none focus:ring-1 focus:ring-blue-500 bg-white">
               </div>
-              <button onclick="populateFullMonth()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-2.5 py-1 rounded transition shadow-sm">
+              <button onclick="populateFullMonth()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-2.5 py-1 rounded-md transition shadow-2xs">
                 📅 Populate Month
               </button>
             </div>
 
-            <div class="overflow-x-auto max-h-[350px] overflow-y-auto border rounded-lg">
+            <div class="overflow-x-auto max-h-[340px] overflow-y-auto border border-slate-200 rounded-lg">
               <table class="w-full text-left border-collapse text-xs">
-                <thead class="sticky top-0 bg-gray-100 text-gray-700 font-semibold uppercase">
+                <thead class="sticky top-0 bg-slate-100 text-slate-700 font-semibold uppercase">
                   <tr>
-                    <th class="border-b p-2">Date / Day</th>
-                    <th class="border-b p-2">Observed QC</th>
-                    <th class="border-b p-2 no-print text-center w-16">Action</th>
+                    <th class="border-b border-slate-200 p-2">Date / Day</th>
+                    <th class="border-b border-slate-200 p-2">Observed QC</th>
+                    <th class="border-b border-slate-200 p-2 no-print text-center w-16">Action</th>
                   </tr>
                 </thead>
                 <tbody id="dataTable">
@@ -178,29 +269,172 @@
           </div>
 
         </div>
-
       </div>
+
+      <!-- ========================================================= -->
+      <!-- VIEW 2: BATCH / ALL ANALYTES REPORT GRID                  -->
+      <!-- ========================================================= -->
+      <div id="batchViewSection" class="hidden print-container bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
+        <div class="border-b border-slate-200 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900" id="batchReportHeading">Batch Levey-Jennings QC Summary Report</h2>
+            <p class="text-xs text-slate-500" id="batchReportSubheading">Displaying all analytes in selected group</p>
+          </div>
+          <span class="text-xs font-semibold bg-slate-100 text-slate-700 px-3 py-1 rounded-full border border-slate-200" id="batchChartCountBadge">0 Charts</span>
+        </div>
+
+        <!-- 2-Column Responsive Grid matching image.png -->
+        <div id="batchChartsGrid" class="batch-print-grid grid grid-cols-1 xl:grid-cols-2 gap-5">
+          <!-- Batch Cards Dynamically Rendered Here -->
+        </div>
+      </div>
+
     </main>
   </div>
 
+  <!-- Custom Non-Blocking Dialog / Modal System (Replaces alert/confirm/prompt) -->
+  <div id="customModalBackdrop" class="no-print fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-5 space-y-4 transform transition-all">
+      <div class="flex items-start justify-between">
+        <h3 id="modalTitle" class="text-base font-bold text-slate-900">Notification</h3>
+        <button onclick="closeCustomModal(null)" class="text-slate-400 hover:text-slate-600 text-sm font-bold px-1">✕</button>
+      </div>
+      <p id="modalMessage" class="text-xs text-slate-600 leading-relaxed"></p>
+      <div id="modalInputWrapper" class="hidden">
+        <input type="text" id="modalInput" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button id="modalCancelBtn" onclick="closeCustomModal(false)" class="px-3.5 py-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition">
+          Cancel
+        </button>
+        <button id="modalConfirmBtn" onclick="confirmCustomModal()" class="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition shadow-2xs">
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Banner -->
+  <div id="toastBanner" class="no-print fixed bottom-5 right-5 z-50 hidden items-center gap-2 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-xl shadow-lg border border-slate-700">
+    <span id="toastIcon">✅</span>
+    <span id="toastText">Saved</span>
+  </div>
+
   <script>
-    let ljChart;
+    let ljChart = null;
+    let batchChartInstances = {};
     let chartsDatabase = [];
     let activeChartId = null;
+    let currentViewMode = 'single'; // 'single' | 'batch'
 
     let collapsedState = {
       depts: {},
       levels: {}
     };
 
-    // Helper to generate default preset rows for hematology analytes
-    function generateDefaultRows() {
-      return [
-        { label: "10-01-26", value: null },
-        { label: "10-02-26", value: null },
-        { label: "10-03-26", value: null },
-        { label: "10-04-26", value: null }
+    // Custom Modal Promise Handler
+    let modalResolve = null;
+    let modalMode = 'alert';
+
+    function showToast(message, icon = '✅') {
+      const toast = document.getElementById('toastBanner');
+      document.getElementById('toastIcon').innerText = icon;
+      document.getElementById('toastText').innerText = message;
+      toast.classList.remove('hidden');
+      toast.classList.add('flex');
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => {
+        toast.classList.add('hidden');
+        toast.classList.remove('flex');
+      }, 2800);
+    }
+
+    function openCustomModal({ title, message, mode = 'alert', defaultValue = '', confirmText = 'Confirm' }) {
+      return new Promise((resolve) => {
+        modalResolve = resolve;
+        modalMode = mode;
+
+        document.getElementById('modalTitle').innerText = title;
+        document.getElementById('modalMessage').innerText = message;
+        document.getElementById('modalConfirmBtn').innerText = confirmText;
+
+        const inputWrap = document.getElementById('modalInputWrapper');
+        const inputEl = document.getElementById('modalInput');
+        const cancelBtn = document.getElementById('modalCancelBtn');
+
+        if (mode === 'prompt') {
+          inputWrap.classList.remove('hidden');
+          inputEl.value = defaultValue;
+          cancelBtn.classList.remove('hidden');
+          setTimeout(() => inputEl.focus(), 50);
+        } else if (mode === 'confirm') {
+          inputWrap.classList.add('hidden');
+          cancelBtn.classList.remove('hidden');
+        } else {
+          inputWrap.classList.add('hidden');
+          cancelBtn.classList.add('hidden');
+        }
+
+        const backdrop = document.getElementById('customModalBackdrop');
+        backdrop.classList.remove('hidden');
+        backdrop.classList.add('flex');
+      });
+    }
+
+    function confirmCustomModal() {
+      const backdrop = document.getElementById('customModalBackdrop');
+      backdrop.classList.add('hidden');
+      backdrop.classList.remove('flex');
+      if (modalResolve) {
+        if (modalMode === 'prompt') {
+          modalResolve(document.getElementById('modalInput').value);
+        } else {
+          modalResolve(true);
+        }
+        modalResolve = null;
+      }
+    }
+
+    function closeCustomModal(val) {
+      const backdrop = document.getElementById('customModalBackdrop');
+      backdrop.classList.add('hidden');
+      backdrop.classList.remove('flex');
+      if (modalResolve) {
+        modalResolve(modalMode === 'prompt' ? null : false);
+        modalResolve = null;
+      }
+    }
+
+    document.getElementById('modalInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') confirmCustomModal();
+      if (e.key === 'Escape') closeCustomModal(null);
+    });
+
+    // Helper to generate default preset rows
+    function generateDefaultRows(mean = null, sd = null) {
+      const baseDates = [
+        "04-01-27", "04-02-27", "04-03-27", "04-05-27", "04-06-27",
+        "04-07-27", "04-08-27", "04-09-27", "04-10-27", "04-12-27",
+        "04-13-27", "04-14-27", "04-15-27", "04-16-27", "04-17-27",
+        "04-19-27", "04-20-27", "04-21-27", "04-22-27", "04-23-27",
+        "04-24-27", "04-26-27", "04-27-27", "04-28-27", "04-29-27", "04-30-27"
       ];
+      return baseDates.map(d => {
+        if (mean === null || sd === null) return { label: d, value: null };
+        return { label: d, value: generateGaussianValue(mean, sd) };
+      });
+    }
+
+    // Box-Muller normal distribution generator clamped smoothly within ~ +/- 1.8 SD for realistic QC runs
+    function generateGaussianValue(mean, sd) {
+      let u1 = Math.random() || 1e-6;
+      let u2 = Math.random();
+      let z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+      // Keep 95%+ points within +/- 1.8 SD for realistic in-control QC charts
+      z0 = Math.max(-1.85, Math.min(1.85, z0 * 0.85));
+      const val = mean + (z0 * sd);
+      const decimals = sd < 1 ? 2 : (sd < 5 ? 2 : 1);
+      return parseFloat(val.toFixed(decimals));
     }
 
     const hemaAnalytes = [
@@ -219,6 +453,15 @@
       { name: "BASO", mean: 1.0, sd: 0.2 }
     ];
 
+    const chemAnalytes = [
+      { name: "AST", mean: 34.27, sd: 0.86 },
+      { name: "ALT", mean: 38.50, sd: 1.45 },
+      { name: "Glucose", mean: 95.0, sd: 4.5 },
+      { name: "Creatinine", mean: 1.15, sd: 0.08 },
+      { name: "BUN", mean: 16.4, sd: 1.2 },
+      { name: "Total Cholesterol", mean: 185.0, sd: 6.5 }
+    ];
+
     function getInitialPresetCharts() {
       let charts = [];
       let idCounter = 1;
@@ -227,13 +470,21 @@
       charts.push({
         id: 'chart_' + (idCounter++),
         title: 'CM RBC HIGH',
-        data: { department: "Clinical Microscopy", level: "HIGH", analyte: "RBC", mean: 202.9, sd: 40.66, rows: [{ label: "10-01-26", value: 210.8 }] }
+        data: {
+          department: "Clinical Microscopy",
+          level: "HIGH",
+          analyte: "RBC",
+          mean: 202.9,
+          sd: 40.66,
+          rows: generateDefaultRows(202.9, 40.66)
+        }
       });
 
       // Hematology Levels: Level 1 (L1), Level 2 (L2), Level 3 (L3)
       ["Level 1 (L1)", "Level 2 (L2)", "Level 3 (L3)"].forEach(lvl => {
         hemaAnalytes.forEach(ha => {
           let multiplier = lvl.includes("1") ? 1.0 : (lvl.includes("2") ? 1.5 : 2.0);
+          const m = parseFloat((ha.mean * multiplier).toFixed(2));
           charts.push({
             id: 'chart_' + (idCounter++),
             title: `${ha.name} ${lvl.split(' ')[0]}`,
@@ -241,19 +492,28 @@
               department: "Hematology",
               level: lvl,
               analyte: ha.name,
-              mean: parseFloat((ha.mean * multiplier).toFixed(2)),
+              mean: m,
               sd: ha.sd,
-              rows: generateDefaultRows()
+              rows: generateDefaultRows(m, ha.sd)
             }
           });
         });
       });
 
-      // Clinical Chemistry
-      charts.push({
-        id: 'chart_' + (idCounter++),
-        title: 'CHEM GLUCOSE L1',
-        data: { department: "Clinical Chemistry", level: "L1 - Normal", analyte: "Glucose", mean: 95.0, sd: 4.5, rows: [{ label: "10-01-26", value: 94.2 }] }
+      // Clinical Chemistry (Includes AST matching reference screenshot)
+      chemAnalytes.forEach(ca => {
+        charts.push({
+          id: 'chart_' + (idCounter++),
+          title: `CHEM ${ca.name.toUpperCase()} L1`,
+          data: {
+            department: "Clinical Chemistry",
+            level: "L1 - Normal",
+            analyte: ca.name,
+            mean: ca.mean,
+            sd: ca.sd,
+            rows: generateDefaultRows(ca.mean, ca.sd)
+          }
+        });
       });
 
       return charts;
@@ -263,6 +523,7 @@
       const now = new Date();
       const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       document.getElementById('autoMonthPicker').value = monthStr;
+      document.getElementById('batchMonthPicker').value = monthStr;
 
       const stored = localStorage.getItem('lj_charts_db_v4');
       if (stored) {
@@ -271,7 +532,11 @@
         chartsDatabase = getInitialPresetCharts();
         saveDatabaseToStorage();
       }
-      activeChartId = chartsDatabase[0].id;
+
+      // Default to AST chart if present so user sees immediate rich data, otherwise first chart
+      const astChart = chartsDatabase.find(c => (c.data.analyte || '').toUpperCase() === 'AST');
+      activeChartId = astChart ? astChart.id : chartsDatabase[0].id;
+
       renderSidebarTiles();
       loadActiveChartIntoUI();
       initCanvasDragListeners();
@@ -281,7 +546,41 @@
       localStorage.setItem('lj_charts_db_v4', JSON.stringify(chartsDatabase));
     }
 
-    // Export & Import Database Functions for multi-device sync
+    // Switch between Single Analyte Editor and Batch / All Analytes View
+    function switchViewMode(mode) {
+      currentViewMode = mode;
+      const singleSec = document.getElementById('singleViewSection');
+      const batchSec = document.getElementById('batchViewSection');
+      const singleCfg = document.getElementById('singleConfigPanel');
+      const batchCfg = document.getElementById('batchConfigPanel');
+      const btnSingle = document.getElementById('btnViewSingle');
+      const btnBatch = document.getElementById('btnViewBatch');
+      const printLabel = document.getElementById('printBtnLabel');
+
+      if (mode === 'single') {
+        singleSec.classList.remove('hidden');
+        batchSec.classList.add('hidden');
+        singleCfg.classList.remove('hidden');
+        batchCfg.classList.add('hidden');
+
+        btnSingle.className = "px-3 py-1.5 rounded-md text-xs font-semibold transition bg-white text-blue-700 shadow-sm";
+        btnBatch.className = "px-3 py-1.5 rounded-md text-xs font-semibold transition text-slate-600 hover:text-slate-900";
+        printLabel.innerText = "Print Chart & Log";
+        renderChart();
+      } else {
+        singleSec.classList.add('hidden');
+        batchSec.classList.remove('hidden');
+        singleCfg.classList.add('hidden');
+        batchCfg.classList.remove('hidden');
+
+        btnBatch.className = "px-3 py-1.5 rounded-md text-xs font-semibold transition bg-white text-blue-700 shadow-sm";
+        btnSingle.className = "px-3 py-1.5 rounded-md text-xs font-semibold transition text-slate-600 hover:text-slate-900";
+        printLabel.innerText = "Print Batch Report";
+        renderBatchView();
+      }
+    }
+
+    // Export & Import Database Functions
     function exportDatabase() {
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(chartsDatabase, null, 2));
       const downloadAnchor = document.createElement('a');
@@ -290,6 +589,7 @@
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
+      showToast("Backup JSON downloaded");
     }
 
     function importDatabase(event) {
@@ -297,25 +597,32 @@
       if (event.target.files.length === 0) return;
       
       fileReader.readAsText(event.target.files[0], "UTF-8");
-      fileReader.onload = function(e) {
+      fileReader.onload = async function(e) {
         try {
           const importedDB = JSON.parse(e.target.result);
           if (Array.isArray(importedDB) && importedDB.length > 0) {
-            if (confirm("Importing this backup will overwrite your current charts. Proceed?")) {
+            const ok = await openCustomModal({
+              title: "Import QC Backup",
+              message: "Importing this backup file will replace your current local charts database. Do you want to continue?",
+              mode: "confirm",
+              confirmText: "Import & Replace"
+            });
+            if (ok) {
               chartsDatabase = importedDB;
               saveDatabaseToStorage();
               activeChartId = chartsDatabase[0].id;
               renderSidebarTiles();
               loadActiveChartIntoUI();
-              alert("Backup successfully imported!");
+              if (currentViewMode === 'batch') renderBatchView();
+              showToast("Backup successfully imported!");
             }
           } else {
-            alert("Invalid backup file format.");
+            await openCustomModal({ title: "Invalid File", message: "The selected JSON file does not match the QC database format.", mode: "alert" });
           }
         } catch (error) {
-          alert("Error parsing JSON backup file.");
+          await openCustomModal({ title: "Parse Error", message: "Unable to parse the selected JSON backup file.", mode: "alert" });
         }
-        event.target.value = ""; // Reset file input
+        event.target.value = "";
       };
     }
 
@@ -394,6 +701,7 @@
                 <span class="truncate">${levelName}</span>
               </div>
               <div class="flex items-center space-x-1">
+                <button onclick="event.stopPropagation(); openBatchForFolder('${dept}', '${levelName}')" class="text-[10px] text-emerald-400 hover:text-emerald-200 font-semibold px-1" title="View All Charts in this Level">📑 Grid</button>
                 <button onclick="event.stopPropagation(); createNewChartInTarget('${dept}', '${levelName}')" class="text-[10px] text-blue-400 hover:text-blue-200 font-bold px-1" title="Add New Chart Here">+ Add</button>
                 <button onclick="event.stopPropagation(); renameLevel('${dept}', '${levelName}')" class="text-[10px] text-slate-500 hover:text-slate-300 px-1" title="Rename Level Group">✏️</button>
                 <span class="text-[10px] text-slate-500">(${levelCharts.length})</span>
@@ -422,7 +730,7 @@
                       <span class="text-xs">📈</span>
                       <div class="truncate">
                         <h4 class="font-medium text-xs truncate">${item.title}</h4>
-                        <p class="text-[10px] text-slate-400 truncate">${item.data.analyte || 'No analyte'}</p>
+                        <p class="text-[10px] text-slate-400 truncate">${item.data.analyte || 'No analyte'} • Mean: ${item.data.mean}</p>
                       </div>
                     </div>
                     <div class="flex items-center space-x-0.5 opacity-70 group-hover:opacity-100">
@@ -447,10 +755,24 @@
       });
     }
 
+    function openBatchForFolder(dept, levelName) {
+      const firstMatch = chartsDatabase.find(c => (c.data.department || "Clinical Microscopy") === dept && c.data.level === levelName);
+      if (firstMatch) {
+        activeChartId = firstMatch.id;
+        loadActiveChartIntoUI();
+      }
+      document.getElementById('batchScopeSelect').value = 'active_level';
+      switchViewMode('batch');
+    }
+
     function switchChart(id) {
       activeChartId = id;
+      document.getElementById('generatedStatusBadge').classList.add('hidden');
       renderSidebarTiles();
       loadActiveChartIntoUI();
+      if (currentViewMode === 'batch') {
+        switchViewMode('single');
+      }
     }
 
     function getTargetFolderContext() {
@@ -487,22 +809,26 @@
       createNewChartInTarget(target.department, target.level);
     }
 
-    function createNewChartInTarget(department, level) {
-      const title = prompt(`Enter chart title for [${department} / ${level}]:`, "New QC Record");
-      if (!title) return;
+    async function createNewChartInTarget(department, level) {
+      const title = await openCustomModal({
+        title: "Create New QC Chart",
+        message: `Enter chart title for [${department} / ${level}]:`,
+        mode: "prompt",
+        defaultValue: "New QC Record",
+        confirmText: "Create Chart"
+      });
+      if (!title || !title.trim()) return;
 
       const newRecord = {
         id: 'chart_' + Date.now(),
-        title: title,
+        title: title.trim(),
         data: {
           department: department,
           level: level,
-          analyte: "New Analyte",
+          analyte: title.trim(),
           mean: 100,
-          sd: 10,
-          rows: [
-            { label: "10-01-26", value: 100 }
-          ]
+          sd: 5,
+          rows: generateDefaultRows(100, 5)
         }
       };
 
@@ -514,6 +840,7 @@
       saveDatabaseToStorage();
       renderSidebarTiles();
       loadActiveChartIntoUI();
+      showToast(`Created "${newRecord.title}"`);
     }
 
     function duplicateChart(id) {
@@ -531,21 +858,35 @@
       saveDatabaseToStorage();
       renderSidebarTiles();
       loadActiveChartIntoUI();
+      showToast(`Duplicated "${original.title}"`);
     }
 
-    function renameChart(id) {
+    async function renameChart(id) {
       const item = chartsDatabase.find(c => c.id === id);
       if (!item) return;
-      const newTitle = prompt("Rename chart title:", item.title);
+      const newTitle = await openCustomModal({
+        title: "Rename QC Chart",
+        message: "Enter a new display title for this chart:",
+        mode: "prompt",
+        defaultValue: item.title,
+        confirmText: "Save Name"
+      });
       if (newTitle && newTitle.trim() !== "") {
         item.title = newTitle.trim();
         saveDatabaseToStorage();
         renderSidebarTiles();
+        showToast("Chart renamed");
       }
     }
 
-    function renameLevel(dept, oldLevelName) {
-      const newLevelName = prompt(`Rename Level "${oldLevelName}" across charts in ${dept}:`, oldLevelName);
+    async function renameLevel(dept, oldLevelName) {
+      const newLevelName = await openCustomModal({
+        title: "Rename Control Level",
+        message: `Rename Level "${oldLevelName}" across all charts in ${dept}:`,
+        mode: "prompt",
+        defaultValue: oldLevelName,
+        confirmText: "Update Level"
+      });
       if (newLevelName && newLevelName.trim() !== "" && newLevelName !== oldLevelName) {
         chartsDatabase.forEach(c => {
           if ((c.data.department || "Clinical Microscopy") === dept && c.data.level === oldLevelName) {
@@ -555,11 +896,18 @@
         saveDatabaseToStorage();
         renderSidebarTiles();
         loadActiveChartIntoUI();
+        showToast("Control level updated");
       }
     }
 
-    function deleteChart(id) {
-      if (confirm("Are you sure you want to delete this chart?")) {
+    async function deleteChart(id) {
+      const ok = await openCustomModal({
+        title: "Delete QC Chart",
+        message: "Are you sure you want to permanently delete this QC chart record?",
+        mode: "confirm",
+        confirmText: "Delete"
+      });
+      if (ok) {
         chartsDatabase = chartsDatabase.filter(c => c.id !== id);
         if (activeChartId === id) {
           activeChartId = chartsDatabase[0].id;
@@ -567,6 +915,7 @@
         saveDatabaseToStorage();
         renderSidebarTiles();
         loadActiveChartIntoUI();
+        showToast("Chart deleted", "🗑️");
       }
     }
 
@@ -577,8 +926,8 @@
       document.getElementById('chartDept').value = active.data.department || "Clinical Microscopy";
       document.getElementById('controlLevel').value = active.data.level || "";
       document.getElementById('analyteName').value = active.data.analyte || "";
-      document.getElementById('targetMean').value = active.data.mean || "";
-      document.getElementById('targetSD').value = active.data.sd || "";
+      document.getElementById('targetMean').value = active.data.mean !== undefined ? active.data.mean : "";
+      document.getElementById('targetSD').value = active.data.sd !== undefined ? active.data.sd : "";
 
       const tbody = document.getElementById('dataTable');
       tbody.innerHTML = '';
@@ -593,20 +942,27 @@
     function appendRowToTable(dateLabel = "", value = "") {
       const tbody = document.getElementById('dataTable');
       const tr = document.createElement('tr');
-      tr.className = "hover:bg-gray-50";
+      tr.className = "hover:bg-slate-50 transition-colors";
       tr.innerHTML = `
-        <td class="border-b p-1.5"><input type="text" value="${dateLabel}" class="w-full bg-transparent outline-none p-1 day-label"></td>
-        <td class="border-b p-1.5"><input type="number" step="any" value="${value !== null && value !== undefined ? value : ''}" class="w-full bg-transparent outline-none p-1 font-mono text-blue-700 font-semibold qc-value"></td>
-        <td class="border-b p-1.5 text-center no-print"><button onclick="deleteRow(this)" class="text-red-500 hover:text-red-700 text-xs font-bold">Remove</button></td>
+        <td class="border-b border-slate-100 p-1.5"><input type="text" value="${dateLabel}" class="w-full bg-transparent outline-none p-1 day-label font-medium text-slate-700"></td>
+        <td class="border-b border-slate-100 p-1.5"><input type="number" step="any" value="${value !== null && value !== undefined ? value : ''}" class="w-full bg-transparent outline-none p-1 font-mono text-blue-700 font-semibold qc-value"></td>
+        <td class="border-b border-slate-100 p-1.5 text-center no-print"><button onclick="deleteRow(this)" class="text-red-500 hover:text-red-700 text-xs font-bold px-1.5 py-0.5 rounded hover:bg-red-50">Remove</button></td>
       `;
       tbody.appendChild(tr);
     }
 
-    function populateFullMonth() {
+    async function populateFullMonth() {
       const monthPickerVal = document.getElementById('autoMonthPicker').value;
       if (!monthPickerVal) return;
 
-      if (confirm("Populating the month will replace your current log table rows. Continue?")) {
+      const ok = await openCustomModal({
+        title: "Populate Full Month",
+        message: "Populating the selected month will replace your current log table rows with dates for that month. Continue?",
+        mode: "confirm",
+        confirmText: "Populate Dates"
+      });
+
+      if (ok) {
         const [yearStr, monthStr] = monthPickerVal.split('-');
         const year = parseInt(yearStr);
         const month = parseInt(monthStr);
@@ -626,32 +982,64 @@
         attachListeners();
         saveActiveChartFromUI();
         renderChart();
+        showToast(`Populated ${daysInMonth} days for ${monthPickerVal}`);
       }
     }
 
-    function autoGenerateData() {
-      const mean = parseFloat(document.getElementById('targetMean').value) || 0;
-      const sd = parseFloat(document.getElementById('targetSD').value) || 0;
-      
-      const rows = document.querySelectorAll('#dataTable tr');
-      if (rows.length === 0) {
-        alert("Please add rows or populate a month first!");
+    // Core feature: Generate data for the specific analyte & display summary + chart
+    function generateSpecificAnalyteReport() {
+      if (currentViewMode !== 'single') {
+        switchViewMode('single');
+      }
+
+      const mean = parseFloat(document.getElementById('targetMean').value);
+      const sd = parseFloat(document.getElementById('targetSD').value);
+      const analyte = document.getElementById('analyteName').value.trim() || 'Analyte';
+
+      if (isNaN(mean) || isNaN(sd) || sd <= 0) {
+        openCustomModal({
+          title: "Missing Mean or SD",
+          message: "Please enter valid numeric values for Target Mean and 1 SD (greater than 0) before generating QC data.",
+          mode: "alert",
+          confirmText: "Got it"
+        });
         return;
+      }
+
+      let rows = document.querySelectorAll('#dataTable tr');
+      // If table has fewer than 5 rows, automatically populate the active month's dates so the chart is rich & complete
+      if (rows.length < 5) {
+        const monthPickerVal = document.getElementById('autoMonthPicker').value || "2027-04";
+        const [yearStr, monthStr] = monthPickerVal.split('-');
+        const year = parseInt(yearStr);
+        const month = parseInt(monthStr);
+        const daysInMonth = Math.min(26, new Date(year, month, 0).getDate());
+        const shortYear = yearStr.slice(-2);
+
+        const tbody = document.getElementById('dataTable');
+        tbody.innerHTML = '';
+        for (let day = 1; day <= daysInMonth; day++) {
+          const dateLabel = `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}-${shortYear}`;
+          appendRowToTable(dateLabel, "");
+        }
+        attachListeners();
+        rows = document.querySelectorAll('#dataTable tr');
       }
 
       rows.forEach(row => {
         const valInput = row.querySelector('.qc-value');
-        // Box-Muller transform for normal distribution around mean with sd
-        let u1 = Math.random();
-        let u2 = Math.random();
-        let z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-        let generatedVal = mean + (z0 * sd);
-        
-        valInput.value = parseFloat(generatedVal.toFixed(2));
+        valInput.value = generateGaussianValue(mean, sd);
       });
 
       saveActiveChartFromUI();
       renderChart();
+      renderSidebarTiles();
+
+      // Highlight generated status badge
+      const badge = document.getElementById('generatedStatusBadge');
+      badge.classList.remove('hidden');
+
+      showToast(`Generated QC data for ${analyte} (Mean: ${mean}, SD: ${sd})`, '⚡');
     }
 
     function addRow() {
@@ -720,6 +1108,18 @@
       saveDatabaseToStorage();
     }
 
+    function computeObservedStats(values) {
+      const valid = values.filter(v => v !== null && !isNaN(v));
+      if (valid.length === 0) return null;
+      const n = valid.length;
+      const obsMean = valid.reduce((a, b) => a + b, 0) / n;
+      const variance = n > 1
+        ? valid.reduce((acc, val) => acc + Math.pow(val - obsMean, 2), 0) / (n - 1)
+        : 0;
+      const obsSD = Math.sqrt(variance);
+      return { n, obsMean, obsSD };
+    }
+
     function calculateLimits() {
       const mean = parseFloat(document.getElementById('targetMean').value) || 0;
       const sd = parseFloat(document.getElementById('targetSD').value) || 0;
@@ -735,33 +1135,27 @@
       document.getElementById('val1SDM').innerText = m1sd;
       document.getElementById('val2SDM').innerText = m2sd;
 
+      // Update Summary Banner Metrics
+      document.getElementById('cardTargetMean').innerText = mean.toFixed(3);
+      document.getElementById('cardTargetSD').innerText = sd.toFixed(3);
+
       return { mean, sd, p2sd, p1sd, m1sd, m2sd };
     }
 
-    function renderChart() {
-      const { mean, sd, p2sd, p1sd, m1sd, m2sd } = calculateLimits();
-      const showLabels = document.getElementById('showLabelsToggle').checked;
-      
-      const labels = [];
-      const data = [];
-      document.querySelectorAll('#dataTable tr').forEach(row => {
-        const label = row.querySelector('.day-label').value;
-        const valStr = row.querySelector('.qc-value').value;
-        const val = parseFloat(valStr);
-        labels.push(label || '');
-        data.push(isNaN(val) ? null : val);
-      });
+    function buildLJChartConfig(ctx, { labels, data, analyte, mean, sd, showLabels = false }) {
+      const p2sd = parseFloat((mean + 2 * sd).toFixed(3));
+      const p1sd = parseFloat((mean + 1 * sd).toFixed(3));
+      const m1sd = parseFloat((mean - 1 * sd).toFixed(3));
+      const m2sd = parseFloat((mean - 2 * sd).toFixed(3));
 
-      const dept = document.getElementById('chartDept').value;
-      const analyte = document.getElementById('analyteName').value;
-      const level = document.getElementById('controlLevel').value;
-      document.getElementById('printSubtitle').innerText = `Department: ${dept} | Parameter: ${analyte} | Control Level: ${level}`;
+      const validNums = data.filter(v => v !== null && !isNaN(v));
+      const minData = validNums.length ? Math.min(...validNums) : mean;
+      const maxData = validNums.length ? Math.max(...validNums) : mean;
 
-      const ctx = document.getElementById('ljChart').getContext('2d');
+      const yMin = Math.min(mean - (2.6 * sd), minData - (0.4 * sd));
+      const yMax = Math.max(mean + (2.6 * sd), maxData + (0.4 * sd));
 
-      if (ljChart) ljChart.destroy();
-
-      ljChart = new Chart(ctx, {
+      return new Chart(ctx, {
         type: 'line',
         data: {
           labels: labels,
@@ -771,8 +1165,8 @@
             borderColor: '#1e40af',
             backgroundColor: '#1e40af',
             borderWidth: 2,
-            pointRadius: 6,
-            pointHoverRadius: 9,
+            pointRadius: 5,
+            pointHoverRadius: 8,
             pointHitRadius: 12,
             tension: 0
           }]
@@ -782,13 +1176,15 @@
           maintainAspectRatio: false,
           scales: {
             y: {
-              suggestedMin: mean - (2.5 * sd),
-              suggestedMax: mean + (2.5 * sd),
-              title: { display: true, text: analyte, font: { weight: 'bold' } },
+              suggestedMin: yMin,
+              suggestedMax: yMax,
+              title: { display: true, text: analyte || 'Value', font: { weight: 'bold', size: 11 } },
+              ticks: { font: { size: 10 } },
               grid: { display: false }
             },
             x: {
-              title: { display: true, text: 'Date / Run', font: { weight: 'bold' } },
+              title: { display: true, text: 'Date / Run', font: { weight: 'bold', size: 11 } },
+              ticks: { font: { size: 9 }, maxRotation: 45, minRotation: 45 },
               grid: { display: false }
             }
           },
@@ -802,7 +1198,7 @@
                   yMax: p2sd, 
                   borderColor: '#ef4444', 
                   borderWidth: 1.5, 
-                  label: { display: showLabels, content: `+2SD (${p2sd})`, position: 'start', backgroundColor: '#ef4444', font: { size: 10 } } 
+                  label: { display: showLabels, content: `+2SD (${p2sd.toFixed(3)})`, position: 'start', backgroundColor: '#ef4444', font: { size: 9 } } 
                 },
                 p1sdLine: { 
                   type: 'line', 
@@ -810,7 +1206,7 @@
                   yMax: p1sd, 
                   borderColor: '#9ca3af', 
                   borderWidth: 1.5, 
-                  label: { display: showLabels, content: `+1SD (${p1sd})`, position: 'start', backgroundColor: '#9ca3af', font: { size: 10 } } 
+                  label: { display: showLabels, content: `+1SD (${p1sd.toFixed(3)})`, position: 'start', backgroundColor: '#9ca3af', font: { size: 9 } } 
                 },
                 meanLine: { 
                   type: 'line', 
@@ -818,7 +1214,7 @@
                   yMax: mean, 
                   borderColor: '#06b6d4', 
                   borderWidth: 2, 
-                  label: { display: showLabels, content: `Mean (${mean.toFixed(3)})`, position: 'start', backgroundColor: '#06b6d4', font: { size: 10 } } 
+                  label: { display: showLabels, content: `Mean (${mean.toFixed(3)})`, position: 'start', backgroundColor: '#06b6d4', font: { size: 9 } } 
                 },
                 m1sdLine: { 
                   type: 'line', 
@@ -826,7 +1222,7 @@
                   yMax: m1sd, 
                   borderColor: '#9ca3af', 
                   borderWidth: 1.5, 
-                  label: { display: showLabels, content: `-1SD (${m1sd})`, position: 'start', backgroundColor: '#9ca3af', font: { size: 10 } } 
+                  label: { display: showLabels, content: `-1SD (${m1sd.toFixed(3)})`, position: 'start', backgroundColor: '#9ca3af', font: { size: 9 } } 
                 },
                 m2sdLine: { 
                   type: 'line', 
@@ -834,7 +1230,7 @@
                   yMax: m2sd, 
                   borderColor: '#ef4444', 
                   borderWidth: 1.5, 
-                  label: { display: showLabels, content: `-2SD (${m2sd})`, position: 'start', backgroundColor: '#ef4444', font: { size: 10 } } 
+                  label: { display: showLabels, content: `-2SD (${m2sd.toFixed(3)})`, position: 'start', backgroundColor: '#ef4444', font: { size: 9 } } 
                 }
               }
             }
@@ -843,7 +1239,233 @@
       });
     }
 
-    // Interactive Drag-and-Drop for Chart Points
+    function renderChart() {
+      const { mean, sd } = calculateLimits();
+      const showLabels = document.getElementById('showLabelsToggle').checked;
+      
+      const labels = [];
+      const data = [];
+      document.querySelectorAll('#dataTable tr').forEach(row => {
+        const label = row.querySelector('.day-label').value;
+        const valStr = row.querySelector('.qc-value').value;
+        const val = parseFloat(valStr);
+        labels.push(label || '');
+        data.push(isNaN(val) ? null : val);
+      });
+
+      const dept = document.getElementById('chartDept').value;
+      const analyte = document.getElementById('analyteName').value || 'Analyte';
+      const level = document.getElementById('controlLevel').value;
+
+      document.getElementById('summaryAnalyteTitle').innerText = analyte;
+      document.getElementById('chartBottomAnalyteName').innerText = analyte;
+      document.getElementById('badgeDeptLevel').innerText = `${dept} • ${level || 'Control'}`;
+      document.getElementById('printSubtitle').innerText = `Department: ${dept} | Parameter: ${analyte} | Control Level: ${level}`;
+
+      // Observed Mean & SD
+      const obs = computeObservedStats(data);
+      const obsEl = document.getElementById('cardObservedStats');
+      if (obs) {
+        obsEl.innerText = `${obs.obsMean.toFixed(2)} ± ${obs.obsSD.toFixed(2)} (n=${obs.n})`;
+      } else {
+        obsEl.innerText = 'No data points';
+      }
+
+      const ctx = document.getElementById('ljChart').getContext('2d');
+      if (ljChart) ljChart.destroy();
+
+      ljChart = buildLJChartConfig(ctx, { labels, data, analyte, mean, sd, showLabels });
+    }
+
+    // =========================================================
+    // BATCH / ALL ANALYTES VIEW LOGIC
+    // =========================================================
+    function getFilteredBatchCharts() {
+      const scope = document.getElementById('batchScopeSelect').value;
+      const active = chartsDatabase.find(c => c.id === activeChartId) || chartsDatabase[0];
+      if (!active) return chartsDatabase;
+
+      if (scope === 'active_level') {
+        return chartsDatabase.filter(c =>
+          (c.data.department || "Clinical Microscopy") === (active.data.department || "Clinical Microscopy") &&
+          (c.data.level || "") === (active.data.level || "")
+        );
+      } else if (scope === 'active_dept') {
+        return chartsDatabase.filter(c =>
+          (c.data.department || "Clinical Microscopy") === (active.data.department || "Clinical Microscopy")
+        );
+      }
+      return chartsDatabase;
+    }
+
+    function renderBatchView() {
+      // Destroy existing batch chart instances to avoid canvas memory leaks
+      Object.values(batchChartInstances).forEach(inst => {
+        if (inst) inst.destroy();
+      });
+      batchChartInstances = {};
+
+      const list = getFilteredBatchCharts();
+      const scope = document.getElementById('batchScopeSelect').value;
+      const active = chartsDatabase.find(c => c.id === activeChartId) || chartsDatabase[0];
+
+      const headingEl = document.getElementById('batchReportHeading');
+      const subheadingEl = document.getElementById('batchReportSubheading');
+      const countBadge = document.getElementById('batchChartCountBadge');
+
+      if (scope === 'active_level' && active) {
+        headingEl.innerText = `${active.data.department} — ${active.data.level}`;
+        subheadingEl.innerText = `Batch Levey-Jennings QC Summary Grid for ${active.data.level}`;
+      } else if (scope === 'active_dept' && active) {
+        headingEl.innerText = `${active.data.department} — All Levels`;
+        subheadingEl.innerText = `Complete Departmental Levey-Jennings QC Summary Grid`;
+      } else {
+        headingEl.innerText = `All Departments — Master Levey-Jennings QC Report`;
+        subheadingEl.innerText = `Showing all configured QC charts across Clinical Microscopy, Hematology, and Clinical Chemistry`;
+      }
+
+      countBadge.innerText = `${list.length} Chart${list.length === 1 ? '' : 's'}`;
+
+      const grid = document.getElementById('batchChartsGrid');
+      grid.innerHTML = '';
+
+      list.forEach(chartItem => {
+        const mean = parseFloat(chartItem.data.mean) || 0;
+        const sd = parseFloat(chartItem.data.sd) || 0;
+        const p2sd = (mean + 2 * sd).toFixed(3);
+        const p1sd = (mean + 1 * sd).toFixed(3);
+        const m1sd = (mean - 1 * sd).toFixed(3);
+        const m2sd = (mean - 2 * sd).toFixed(3);
+
+        const obs = computeObservedStats((chartItem.data.rows || []).map(r => r.value));
+        const obsSummary = obs ? `Obs: ${obs.obsMean.toFixed(2)} ± ${obs.obsSD.toFixed(2)}` : 'No points';
+
+        const card = document.createElement('div');
+        card.className = "batch-card bg-white border border-slate-200 rounded-xl p-4 shadow-2xs flex flex-col justify-between space-y-3";
+
+        card.innerHTML = `
+          <!-- Card Header: Analyte Name, Mean, SD & Quick Actions -->
+          <div class="flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 px-2 py-0.5 rounded">${chartItem.data.department}</span>
+                <span class="text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 px-2 py-0.5 rounded">${chartItem.data.level}</span>
+              </div>
+              <h3 class="text-base font-extrabold text-slate-900 mt-1">${chartItem.data.analyte}</h3>
+              <p class="text-[11px] text-slate-500 font-mono">
+                Target Mean: <strong class="text-blue-700">${mean.toFixed(3)}</strong> | 1 SD: <strong class="text-slate-800">${sd.toFixed(3)}</strong> • <span class="text-emerald-700 font-semibold">${obsSummary}</span>
+              </p>
+            </div>
+            <div class="no-print flex items-center gap-1.5">
+              <button onclick="regenerateSingleBatchCard('${chartItem.id}')" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition" title="Generate fresh QC data for ${chartItem.data.analyte}">
+                🎲 Generate
+              </button>
+              <button onclick="switchChart('${chartItem.id}')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold px-2.5 py-1 rounded-lg transition" title="Open in Single Editor">
+                ✏️ Edit
+              </button>
+            </div>
+          </div>
+
+          <!-- Chart + Right-Side SD Legend matching image.png -->
+          <div class="flex items-center gap-2">
+            <div class="relative flex-1 h-[250px]">
+              <canvas id="batchCanvas_${chartItem.id}"></canvas>
+            </div>
+            <div class="w-28 flex-shrink-0 text-right text-[10px] font-mono space-y-1.5 pl-1 border-l border-slate-100">
+              <div class="text-slate-700"><span class="font-bold text-red-600">+2 SD:</span> ${p2sd}</div>
+              <div class="text-slate-600"><span class="font-semibold">+1 SD:</span> ${p1sd}</div>
+              <div class="text-blue-600 font-bold"><span>MEAN:</span> ${mean.toFixed(3)}</div>
+              <div class="text-slate-600"><span class="font-semibold">-1 SD:</span> ${m1sd}</div>
+              <div class="text-slate-700"><span class="font-bold text-red-600">-2 SD:</span> ${m2sd}</div>
+            </div>
+          </div>
+
+          <!-- Centered Analyte Footer matching image.png -->
+          <div class="text-center pt-1 border-t border-slate-100">
+            <span class="text-sm font-bold text-slate-900 tracking-wide">${chartItem.data.analyte}</span>
+          </div>
+        `;
+
+        grid.appendChild(card);
+
+        // Render Chart.js instance on this card's canvas
+        const canvasEl = document.getElementById(`batchCanvas_${chartItem.id}`);
+        if (canvasEl) {
+          const labels = (chartItem.data.rows || []).map(r => r.label || '');
+          const data = (chartItem.data.rows || []).map(r => (r.value !== null && !isNaN(r.value)) ? r.value : null);
+          batchChartInstances[chartItem.id] = buildLJChartConfig(canvasEl.getContext('2d'), {
+            labels,
+            data,
+            analyte: chartItem.data.analyte,
+            mean,
+            sd,
+            showLabels: false
+          });
+        }
+      });
+    }
+
+    function regenerateSingleBatchCard(chartId) {
+      const item = chartsDatabase.find(c => c.id === chartId);
+      if (!item) return;
+
+      const mean = parseFloat(item.data.mean) || 0;
+      const sd = parseFloat(item.data.sd) || 0;
+
+      if (!item.data.rows || item.data.rows.length < 5) {
+        item.data.rows = generateDefaultRows(mean, sd);
+      } else {
+        item.data.rows = item.data.rows.map(r => ({
+          label: r.label,
+          value: generateGaussianValue(mean, sd)
+        }));
+      }
+
+      saveDatabaseToStorage();
+      if (activeChartId === chartId) {
+        loadActiveChartIntoUI();
+      }
+      renderBatchView();
+      showToast(`Generated QC data for ${item.data.analyte}`, '🎲');
+    }
+
+    function batchGenerateAllVisible() {
+      const list = getFilteredBatchCharts();
+      const batchMonth = document.getElementById('batchMonthPicker').value;
+
+      list.forEach(item => {
+        const mean = parseFloat(item.data.mean) || 0;
+        const sd = parseFloat(item.data.sd) || 0;
+
+        if (batchMonth) {
+          const [yearStr, monthStr] = batchMonth.split('-');
+          const year = parseInt(yearStr);
+          const month = parseInt(monthStr);
+          const daysInMonth = Math.min(26, new Date(year, month, 0).getDate());
+          const shortYear = yearStr.slice(-2);
+          const newRows = [];
+          for (let d = 1; d <= daysInMonth; d++) {
+            const label = `${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}-${shortYear}`;
+            newRows.push({ label, value: generateGaussianValue(mean, sd) });
+          }
+          item.data.rows = newRows;
+        } else if (!item.data.rows || item.data.rows.length < 5) {
+          item.data.rows = generateDefaultRows(mean, sd);
+        } else {
+          item.data.rows = item.data.rows.map(r => ({
+            label: r.label,
+            value: generateGaussianValue(mean, sd)
+          }));
+        }
+      });
+
+      saveDatabaseToStorage();
+      loadActiveChartIntoUI();
+      renderBatchView();
+      showToast(`Generated QC data across ${list.length} analyte chart(s)`, '⚡');
+    }
+
+    // Interactive Drag-and-Drop for Single Chart Points
     function initCanvasDragListeners() {
       let activePointIndex = null;
       const canvas = document.getElementById('ljChart');
@@ -871,7 +1493,6 @@
               valInput.value = parseFloat(newValue.toFixed(2));
               saveActiveChartFromUI();
               
-              // Update chart dataset directly for smooth feedback
               ljChart.data.datasets[0].data[activePointIndex] = parseFloat(newValue.toFixed(2));
               ljChart.update('none');
               calculateLimits();
@@ -880,10 +1501,10 @@
         }
       });
 
-      const stopDrag = (e) => {
+      const stopDrag = () => {
         if (activePointIndex !== null) {
           activePointIndex = null;
-          renderChart(); // Full redraw on release
+          renderChart();
         }
       };
 
@@ -892,8 +1513,7 @@
     }
 
     function attachListeners() {
-      document.querySelectorAll('input, select').forEach(input => {
-        if (input.id === 'showLabelsToggle') return;
+      document.querySelectorAll('#singleConfigPanel input, #singleConfigPanel select, #dataTable input').forEach(input => {
         input.removeEventListener('input', onInputUpdate);
         input.addEventListener('input', onInputUpdate);
         input.removeEventListener('change', onInputUpdate);
