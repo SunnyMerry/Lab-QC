@@ -20,6 +20,12 @@
 
     @media print {
       .no-print { display: none !important; }
+      html, body, #appShell, main {
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        display: block !important;
+      }
       body { background: white !important; padding: 0 !important; margin: 0 !important; }
       .print-container { box-shadow: none !important; border: none !important; width: 100% !important; padding: 0 !important; }
       .print-grid { display: block !important; }
@@ -39,24 +45,29 @@
     }
   </style>
 </head>
-<body class="bg-slate-100 min-h-screen text-slate-800">
+<body class="bg-slate-100 h-screen h-[100dvh] overflow-hidden text-slate-800">
 
-  <div class="flex flex-col md:flex-row min-h-screen">
+  <div id="appShell" class="flex flex-row h-full w-full overflow-hidden">
     
-    <!-- Sidebar: Nested Folder Tree -->
-    <aside class="no-print w-full md:w-80 bg-slate-900 text-white p-4 space-y-4 flex-shrink-0 flex flex-col">
-      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
-        <div>
-          <h2 class="font-bold text-base tracking-tight">QC Charts Folder</h2>
-          <p class="text-xs text-slate-400">Saved QC Records</p>
+    <!-- Sidebar: Persistent Left-Docked Nested Folder Tree -->
+    <aside id="qcSidebar" class="no-print w-56 sm:w-64 md:w-72 lg:w-80 bg-slate-900 text-white p-3 sm:p-4 flex flex-col h-full overflow-hidden flex-shrink-0 border-r border-slate-800 transition-all duration-200">
+      <div class="flex-shrink-0 flex justify-between items-center border-b border-slate-700 pb-3 gap-1.5">
+        <div id="sidebarBrandText" class="min-w-0">
+          <h2 class="font-bold text-sm sm:text-base tracking-tight truncate">QC Charts Folder</h2>
+          <p class="text-[11px] sm:text-xs text-slate-400 truncate">Saved QC Records</p>
         </div>
-        <button onclick="createNewChart()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition shadow-sm" title="Add Chart to Expanded/Active Folder">
-          + New
-        </button>
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+          <button id="sidebarNewBtn" onclick="createNewChart()" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-2.5 sm:px-3 py-1.5 rounded-lg font-semibold transition shadow-sm" title="Add Chart to Expanded/Active Folder">
+            + New
+          </button>
+          <button id="sidebarCollapseBtn" onclick="toggleSidebarDock()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs px-2 py-1.5 rounded-lg border border-slate-700 transition" title="Collapse or Expand Sidebar">
+            ◀
+          </button>
+        </div>
       </div>
 
       <!-- Export / Import Backup Action Bar -->
-      <div class="grid grid-cols-2 gap-2 pb-2 border-b border-slate-800">
+      <div id="sidebarBackupBar" class="flex-shrink-0 grid grid-cols-2 gap-2 py-3 border-b border-slate-800">
         <button onclick="exportDatabase()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-1.5 px-2 rounded-lg border border-slate-700 transition flex items-center justify-center gap-1.5" title="Download backup file to move to PC">
           <span>📥</span> Export
         </button>
@@ -66,14 +77,15 @@
         </label>
       </div>
 
-      <!-- Nested Tree View -->
-      <div id="chartTilesContainer" class="space-y-3 flex-1 max-h-[calc(100vh-190px)] overflow-y-auto pr-1 text-sm">
+      <!-- Nested Tree View (Flexibly fills remaining height and scrolls cleanly to the very bottom) -->
+      <div id="chartTilesContainer" class="flex-1 min-h-0 overflow-y-auto pt-3 pb-10 pr-1 space-y-3 text-sm">
         <!-- Dynamic Collapsible Hierarchy Inserted Here -->
       </div>
     </aside>
 
-    <!-- Main Workspace -->
-    <main class="flex-1 p-4 md:p-6 max-w-[1650px] mx-auto space-y-5 w-full">
+    <!-- Main Workspace (Scrolls independently alongside persistent left sidebar) -->
+    <main class="flex-1 min-w-0 h-full overflow-y-auto p-3 sm:p-4 md:p-6">
+      <div class="max-w-[1650px] mx-auto space-y-5 w-full pb-8">
       
       <!-- Top Controls Header & Mode Switcher -->
       <div class="no-print bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
@@ -289,6 +301,7 @@
         </div>
       </div>
 
+      </div>
     </main>
   </div>
 
@@ -326,6 +339,35 @@
     let chartsDatabase = [];
     let activeChartId = null;
     let currentViewMode = 'single'; // 'single' | 'batch'
+    let isSidebarCollapsed = false;
+
+    function toggleSidebarDock() {
+      isSidebarCollapsed = !isSidebarCollapsed;
+      const sidebar = document.getElementById('qcSidebar');
+      const brandText = document.getElementById('sidebarBrandText');
+      const newBtn = document.getElementById('sidebarNewBtn');
+      const backupBar = document.getElementById('sidebarBackupBar');
+      const tilesContainer = document.getElementById('chartTilesContainer');
+      const collapseBtn = document.getElementById('sidebarCollapseBtn');
+
+      if (isSidebarCollapsed) {
+        sidebar.className = "no-print w-12 bg-slate-900 text-white p-2 flex flex-col items-center h-full overflow-hidden flex-shrink-0 border-r border-slate-800 transition-all duration-200";
+        brandText.classList.add('hidden');
+        newBtn.classList.add('hidden');
+        backupBar.classList.add('hidden');
+        tilesContainer.classList.add('hidden');
+        collapseBtn.innerText = "▶";
+        collapseBtn.title = "Expand QC Charts Folder";
+      } else {
+        sidebar.className = "no-print w-56 sm:w-64 md:w-72 lg:w-80 bg-slate-900 text-white p-3 sm:p-4 flex flex-col h-full overflow-hidden flex-shrink-0 border-r border-slate-800 transition-all duration-200";
+        brandText.classList.remove('hidden');
+        newBtn.classList.remove('hidden');
+        backupBar.classList.remove('hidden');
+        tilesContainer.classList.remove('hidden');
+        collapseBtn.innerText = "◀";
+        collapseBtn.title = "Collapse QC Charts Folder";
+      }
+    }
 
     let collapsedState = {
       depts: {},
